@@ -562,7 +562,7 @@
 ;; Writes list of demands to outfile 
 (defn demands->file [demands outfile]
   (with-open [w (io/writer outfile)]
-    (doseq [line (into [["Type" "Enabled" "Priority" "Quantity" "Demand Index" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Catagory" "Title 10_32" "OITitle"]] demands)]
+    (doseq [line (into [["Type" "Enabled" "Priority" "Quantity" "Demand Index" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle"]] demands)]
       ;;(println line)
       (doseq [d line]
         (write! w (str d "\t")))
@@ -662,8 +662,17 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 ;; ============================================================================
 
 
+;; Testing
 
+(comment (def inr "K:\\Divisions\\FS\\repos\\taa_test_data\\demand_builder\\complexest\\Input\\")
+ (root->demand-file inr)
+ ;;NullPointerException   clojure.lang.Numbers.ops (Numbers.java:1013)
+ (def nr "K:\\Divisions\\FS\\repos\\taa_test_data\\demand_builder\\complexest_trial_n_error\\Input\\")
+ (root->demand-file nr)
 
+ (def vs [{:force-code "Event Code", :src2 "SCR2", :src "SRC", :title "SRC TITLE`", :str "STR", :quantity "QTY", :title_10 "Title 10_32", :non-rot ""} {:force-code "S-7337", :src2 "10", :src "10473R100", :title "QM COMP SPLY CO", :str "208", :quantity "2", :title_10 "10", :non-rot ""} {:force-code "S-706", :src2 "8", :src "08670R000", :title "MED LOG MGMT CTR", :str "14", :quantity "1", :title_10 "10", :non-rot ""}])
+
+ (def vins "K:\\Divisions\\FS\\repos\\taa_test_data\\demand_builder\\complexest_trial_n_error\\Input\\FORGE_SE-99.txt"))
 
 ;; ============================================================================
 ;; ===== ALTERNATIVE METHOD OF FORMATTING FORGE DATA ==========================

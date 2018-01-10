@@ -491,9 +491,34 @@
 ;; ============================================================================
 ;; ============================================================================
 
+;;Removes the last value value of seq and adds newlast (does not gaurantee seq remains ordered)
+(defn replace-last [seq newlast] (conj (take (dec (count seq)) seq) newlast))
 
+;;Replaces the 6th value (duration) with d0 in line
+(defn insert-new-duration [line d0] (concat (conj (vec (take 6 line)) d0) (vec (take-last 9 line))))
 
-
+;; Expands forge records for each time the data is split
+(defn expand-forge [f fd t0 tf]
+  (let [lines (for [time (:times f)]
+                ["DemandRecord" ;; Type
+                 "TRUE" ;; Enabled
+                 "1" ;; Priority
+                 (:quantity time) ;; Quantity
+                 "1" ;; Demand Index
+                 (str (+ t0 (:start time))) ;; Start day - added offset t0 from start time of scenario in v-map
+                 (if (= 0 :duration time) "8" (:duration time)) ;; Duration
+                 "45" ;; Overlap
+                 (:src f) ;; SRC
+                 "Uniform" ;; SourceFirst
+                 (:force-code f) ;; Demand Group
+                 (:force-code f) ;; Vignette
+                 (get-phase-from-day (:start time) fd) ;; Operation - where time is the forge time, not total time
+                 "Rotational" ;; Catagory
+                 (:title_10 f) ;; Title_10
+                 (:title f)]) ;; IO_Title 
+        ;_ (println (map #(nth % 5) lines))
+        sorted-lines (sort-by #(nth % 5) lines)] ;;sorts-by end date (5th + 6th is start + duration) 
+    (replace-last sorted-lines (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))))))) 
 
 ;; ============================================================================
 ;; ===== FUNCTIONS TO WRITE MERGED DATA TO FILE ===============================
@@ -508,13 +533,22 @@
 ;; The offset time, t0, is the time the scenario starts in the v-map. 
 ;; Each time in the forge data has a forge time with the overall offset of t0. 
 (defn get-offset [f vmap]
-  (let [t0 (first (sort (map #(:start %) (:times (get vmap (:force-code f))))))]
+  (let [t0 (apply min (map #(:start %) (:times (get vmap (:force-code f)))))]
     (if (nil? t0) 0 t0)))
+
+;; The last time period in forge should end on the last time period specified by the map. 
+;; If there is a difference in the map end time for a scenario and the end time in the forge data,
+;;  the final time period in the forge file needs to be changed to the final time from the map.
+(defn get-final-map-time [f vmap]
+  ;(println (map #(list (:start %) (:duration %)) (:times (get vmap (:force-code f)))))
+  (apply max (map #(+ (read-string (:start %)) (read-string (:duration %))) (:times (get vmap (:force-code f))))))
+
+
 
 ;; Converts forge data to list of formatted vectors
 (defn forge->lines [forges fd vmap]
   (let [lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)] ;;filter out non-data rows
-                              (expand-forge f fd (read-string (get-offset f vmap)))))] ;;t0 passed as argument to expand-forge
+                              (expand-forge f fd (read-string (get-offset f vmap)) (get-final-map-time f vmap))))] ;;t0 passed as argument to expand-forge
     lines))
 
 ;; Uses vignette map to create list of demands from forge files

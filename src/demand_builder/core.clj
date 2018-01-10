@@ -497,6 +497,8 @@
 ;;Replaces the 6th value (duration) with d0 in line
 (defn insert-new-duration [line d0] (concat (conj (vec (take 6 line)) d0) (vec (take-last 9 line))))
 
+(def edited-forge-scrs (atom #{}))
+
 ;; Expands forge records for each time the data is split
 (defn expand-forge [f fd t0 tf]
   (let [lines (for [time (:times f)]
@@ -516,9 +518,10 @@
                  "Rotational" ;; Catagory
                  (:title_10 f) ;; Title_10
                  (:title f)]) ;; IO_Title 
-        ;_ (println (map #(nth % 5) lines))
-        sorted-lines (sort-by #(nth % 5) lines)] ;;sorts-by end date (5th + 6th is start + duration) 
-    (replace-last sorted-lines (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))))))) 
+        sorted-lines (sort-by #(nth % 5) lines)
+        newline (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))))
+        _ (swap! edited-forge-scrs conj newline)] 
+    (replace-last sorted-lines newline))) 
 
 ;; ============================================================================
 ;; ===== FUNCTIONS TO WRITE MERGED DATA TO FILE ===============================
@@ -619,7 +622,13 @@
 ;; Calls root->demad for multipile roots
 (defn roots->demand-files [roots]
   (let [roots (if (string? roots) [roots] roots)]
-    (doall (pmap #(root->demand-file %) roots))) nil)
+    (doall (pmap #(root->demand-file %) roots))
+    
+    (with-open [w (io/writer (str (first roots) "edited-forge-scrs.txt"))]
+      (doseq [line @edited-forge-scrs]
+        (doseq [val line]
+          (write! w (str val "\t"))) (writeln! w ""))))
+  nil)
 
 ;; Makes file select window appear
 (defn choose-file []

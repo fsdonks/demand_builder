@@ -289,12 +289,14 @@
 
 ;; Builds time data for forge given time map and forge data
 ;; Returns a collection of maps with keys :start, :duration, and :quantity
+;; Fix error in calculation of duration that resulting in duration of zero for last Forge time period of size one
+;; If the last and first period are the same, then the duration is 8 rather than 0. 
 (defn ->forge-quantity-at-time [times fd]
   (let [dm (day-map fd)]
     (for [x (split-all times fd) :let [f (first x)
                                        l (if (< (last x) (dec (last (sort (keys dm))))) (inc (last x)) (last x))
                                        dif (- (get dm l) (get dm f))]]
-      {:start (get dm (first x)) :duration dif :quantity (get times (first x))})))   
+      {:start (get dm (first x)) :duration (if (= 0 dif) 8 dif) :quantity (get times (first x))})))
 
 ;; Given a line of raw forge data, builds map containing formatted data
 (defn forge-data->map [line m fd] ;; where m is forge (map defined from header)
@@ -344,9 +346,8 @@
   (= c (str (first (:force-code data)))))
 
 ;; Checks if is vignette/scenario based on force-code value
-(defn vignette? [data] (or (check-fc data "H") (check-fc data "V")))
 (defn scenario? [data] (= "SE" (apply str (take 2 data))))
-                                        ;(check-fc data "S"))
+(defn vignette? [data] (not (scenario? data))) ;;No naming convention for vignettes, only scenarios have to start with SE
 
 ;; Filters out classification labels ((U) or (S), ect) when used infront force-code label 
 (defn filter-fc [x]
@@ -450,18 +451,6 @@
 ;; Expands vignette records for each time the data is split
 (defn expand-vignette [vmerged vm]
   (for [time (:times vmerged) :let [ttl (:title (get vm (:force-code vmerged)))]]
-    [(:quantity vmerged)
-     (:start time)
-     (:duration time)
-     (:src vmerged)
-     (:force-code vmerged)
-     (if (or (= "" ttl) (nil? ttl)) (:force-code vmerged) ttl)
-     (:title_10 vmerged)
-     (:title vmerged)]))
-
-;; Expands vignette records for each time the data is split
-(defn expand-vignette [vmerged vm]
-  (for [time (:times vmerged) :let [ttl (:title (get vm (:force-code vmerged)))]]
     ["DemandRecord" ;; Type
      "TRUE" ;; Enabled
      "1" ;; Priority
@@ -480,23 +469,22 @@
      (:title_10 vmerged) ;; Title_10 
      (:title vmerged)])) ;; IO_Title
 
-
 ;; Expands forge records for each time the data is split
-(defn expand-forge [f fd]
+(defn expand-forge [f fd t0]
   (for [time (:times f)]
     ["DemandRecord" ;; Type
      "TRUE" ;; Enabled
      "1" ;; Priority
      (:quantity time) ;; Quantity
      "1" ;; Demand Index
-     (:start time) ;; Start day
-     (:duration time) ;; Duration
+     (str (+ t0 (:start time))) ;; Start day - added offset t0 from start time of scenario in v-map
+     (if (= 0 :duration time) "8" (:duration time)) ;; Duration
      "45" ;; Overlap
      (:src f) ;; SRC
      "Uniform" ;; SourceFirst
      (:force-code f) ;; Demand Group
      (:force-code f) ;; Vignette
-     (get-phase-from-day (:start time) fd) ;; Operation
+     (get-phase-from-day (:start time) fd) ;; Operation - where time is the forge time, not total time
      "Rotational" ;; Catagory
      (:title_10 f) ;; Title_10
      (:title f)])) ;; IO_Title 
@@ -517,32 +505,28 @@
          (for [c vcons]
            (expand-vignette (merge-vignette v c) v))))
 
+;; The offset time, t0, is the time the scenario starts in the v-map. 
+;; Each time in the forge data has a forge time with the overall offset of t0. 
+(defn get-offset [f vmap]
+  (let [t0 (first (sort (map #(:start %) (:times (get vmap (:force-code f))))))]
+    (if (nil? t0) 0 t0)))
+
 ;; Converts forge data to list of formatted vectors
-(defn forge->lines [forges fd]
-  ;(doseq [d (filter #(identity (:src %)) forges)] (println (:src d)))
-  ;(println (nth forges 52))
-  (filter #(and (not= "SRC" (nth % 8)) (not= "" (nth % 8)) (not= nil (nth % 8)))
-          (apply concat
-                 (for [f forges]
-                   ;; can speed this up by using pmap to do all files at once if needed.
-                   ;; (pmap #(expand-forge (forge->data % vcons) (csv->lines %)) [files])
-                   (expand-forge
-                    f fd)))))
+(defn forge->lines [forges fd vmap]
+  (let [lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)] ;;filter out non-data rows
+                              (expand-forge f fd (read-string (get-offset f vmap)))))] ;;t0 passed as argument to expand-forge
+    lines))
 
 ;; Uses vignette map to create list of demands from forge files
 (defn vmap->forge-demands [vm vcons root]
   (apply concat 
          (for [fc (filter #(= "SE" (apply str (take 2 %))) (keys vm))
                :let [fdata (forge->data (fc->forge-file fc root) vcons)]]
-           (forge->lines fdata (csv->lines (fc->forge-file fc root))))))
+           (forge->lines fdata (csv->lines (fc->forge-file fc root)) vm))))
 
 ;; Uses vignette map to create list of demands from vignette consolidated data
 (defn vmap->vignette-demands [vm vcons]
-  (let [vcons (filter #(or (= "V" (str (first (:force-code %))))
-                           (= "S" (str (first (:force-code %))))
-                           (= "H" (str (first (:force-code %)))))
-                      vcons)]
-    (vcons->lines vm vcons)))
+  (vcons->lines vm (filter #(vignette? %) vcons))) ;;vignetees no longer have to follow any naming convention. 
 
 ;; Builds list of all demands from vignette file and vignette consolidate file
 (defn build-demand [vfile cfile root]
@@ -588,13 +572,14 @@
     (if (nil? root)
       (println "No file selected.")
       (let [outfile (if outfile (first outfile) (str (last (clojure.string/split root #"[\\ | /]")) "_DEMAND.txt"))
-            ;; If multiple maps or consolidate files, filll only use the first one
+            ;; If multiple maps or consolidate files, will only use the first one
             vfile (str root "\\" (first (root->filetype root vmap-file?)))
             cfile (str root "\\" (first (root->filetype root vcons-file?)))]
         (demands->file (build-demand vfile cfile root) (str root "/" outfile))
-        (println (str "Created demand file "(str root "_DEMAND.txt"))))) 
+        (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))))
+         
     (catch java.io.FileNotFoundException e
-      ;(println e)
+      (println e)
       (println (str "Could not find demand inputs at " root)))))
 
 ;; Calls root->demad for multipile roots
@@ -655,7 +640,7 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
     (->demand-file)
     (->demand-file args))
   (try
-    (System/exit 0) ;; Forces the jar to terminate, sometimes after it is done.
+    (System/exit 0) ;; Forces the jar to terminate, sometimes hangs after it is done.
     (catch Exception e    
       (println "DONE."))))
 ;; ============================================================================
@@ -687,47 +672,47 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 
 (comment ;; uncomment and move if using alternative formatting method
 ;; Reads the first line of file
-(defn read-header [filename]
-  (with-open [r (clojure.java.io/reader filename)]
-    (clojure.string/split (first (line-seq r)) #"\t")))
+ (defn read-header [filename]
+   (with-open [r (clojure.java.io/reader filename)]
+     (clojure.string/split (first (line-seq r)) #"\t")))
 
 ;; Reads all forge data and sorts by src
-(defn read-forge [filename]
-  (let [fm (build-index (read-header filename))]
-    (sort-by #(nth % (get fm :SRC)) (csv->lines filename))))
+ (defn read-forge [filename]
+   (let [fm (build-index (read-header filename))]
+     (sort-by #(nth % (get fm :SRC)) (csv->lines filename))))
 
 ;; Function to return an attribute from a forge record (fr)
 ;; Given the forge index map and a string as the key (use string, not keyword, as key)
-(defn get-a [fr fm key]
-  (nth fr (get fm (keyword key))))
+ (defn get-a [fr fm key]
+   (nth fr (get fm (keyword key))))
 
 ;; Splits all forge records by a supplied key
-(defn split-by-key [fdata fm key]
-  (partition-by #(identity (nth % (get fm key))) fdata))
+ (defn split-by-key [fdata fm key]
+   (partition-by #(identity (nth % (get fm key))) fdata))
 
 ;; Splits all forge records by src
-(defn split-by-src [fdata fm]
-  (split-by-key fdata fm :SRC))
+ (defn split-by-src [fdata fm]
+   (split-by-key fdata fm :SRC))
 
 ;; Given a subset of forge records that have been split by src,
 ;; Returns a map with the a coll of unique values for start, end, quantity, and phase
-(defn ->ftimes [fd fm]
-  (into #{}
-        (for [f fd]
-          (zipmap [:start :end :quantity :phase]
-                  (map #(get-a f fm %) ["Time Period Begin Day"
-                                        "Time Period End Day"
-                                        "UIN Quantity"
-                                        "Subphase"])))))
+ (defn ->ftimes [fd fm]
+   (into #{}
+         (for [f fd]
+           (zipmap [:start :end :quantity :phase]
+                   (map #(get-a f fm %) ["Time Period Begin Day"
+                                         "Time Period End Day"
+                                         "UIN Quantity"
+                                         "Subphase"])))))
 
 ;; Given all forge data, splits the data by scr and gets the unique data for each src
 ;; Returns a single map with the non-unique keys, and coll of map for unique keys
-(defn ->fdata [fd fm fc]
-  (for [src (split-by-src fd fm) :let [f (->ftimes src fm)]]
-   {:src (get-a (first src) fm "SRC")
-     :title (get-a (first src) fm "Title")
-     :force-code fc
-     :times f}))
+ (defn ->fdata [fd fm fc]
+   (for [src (split-by-src fd fm) :let [f (->ftimes src fm)]]
+    {:src (get-a (first src) fm "SRC")
+      :title (get-a (first src) fm "Title")
+      :force-code fc
+      :times f}))
 
 ;; Formats all forge data given the filename
 ;; Returns a coll of maps for all forge records,
@@ -735,35 +720,35 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 ;; The only differece between this and inital method is that
 ;; Phase information is a supplied field within the times key
 ;; and does not have to be derived
-(defn fm->data [filename]
-  (->fdata (drop 1 (csv->lines filename))
-           (build-index (read-header filename))
-           (forge-file->fc filename)))
+ (defn fm->data [filename]
+   (->fdata (drop 1 (csv->lines filename))
+            (build-index (read-header filename))
+            (forge-file->fc filename)))
 
 ;; Corrected expand-forge method for new method of processing forge data
 ;; Only change is the operation field which is retrived from times
 ;; Rather than derived from the header information
 
 ;; Expands forge records for each time the data is split
-(defn expand-forge [f fd]
-  (for [time (:times f)]
-    ["DemandRecord" ;; Type
-     "TRUE" ;; Enabled
-     "1" ;; Priority
-     (:quantity time) ;; Quantity
-     "1" ;; Demand Index
-     (:start time) ;; Start day
-     (- (read-string (:end time)) (read-string (:start time))) ;; Duration
-     "45" ;; Overlap
-     (:src f) ;; SRC
-     "Uniform" ;; SourceFirst
-     (:force-code f) ;; Demand Group
-     (:force-code f) ;; Vignette
-     (:phase time) ;; Operation
-     "Rotational" ;; Catagory
-     "10" ;; Title_10
-     (:title f)])) ;; IO_Title 
+ (defn expand-forge [f fd]
+   (for [time (:times f)]
+     ["DemandRecord" ;; Type
+      "TRUE" ;; Enabled
+      "1" ;; Priority
+      (:quantity time) ;; Quantity
+      "1" ;; Demand Index
+      (:start time) ;; Start day
+      (- (read-string (:end time)) (read-string (:start time))) ;; Duration
+      "45" ;; Overlap
+      (:src f) ;; SRC
+      "Uniform" ;; SourceFirst
+      (:force-code f) ;; Demand Group
+      (:force-code f) ;; Vignette
+      (:phase time) ;; Operation
+      "Rotational" ;; Catagory
+      "10" ;; Title_10
+      (:title f)]))) ;; IO_Title 
 
-) ;; end of comment block
+ ;; end of comment block
 ;; ============================================================================
 ;; ============================================================================

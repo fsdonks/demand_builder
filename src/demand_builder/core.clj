@@ -494,10 +494,18 @@
 ;;Removes the last value value of seq and adds newlast (does not gaurantee seq remains ordered)
 (defn replace-last [seq newlast] (conj (take (dec (count seq)) seq) newlast))
 
-;;Replaces the 6th value (duration) with d0 in line
-(defn insert-new-duration [line d0] (concat (conj (vec (take 6 line)) d0) (vec (take-last 9 line))))
+(def edited-forge-srcs (atom #{}))
 
-(def edited-forge-scrs (atom #{}))
+;;Replaces the 6th value (duration) with d0 in line
+(defn insert-new-duration [line d0 t0 fd]
+  (let [t (- (read-string (str (nth line 5))) t0)
+        e (apply max (vals (phase-indx fd)))]
+    (if (>= e t) ;;only replace when line is in the last phase. 
+      line
+      (let [newline (concat (conj (vec (take 6 line)) d0) (vec (take-last 9 line)))
+            _ (swap! edited-forge-srcs conj newline)] newline))))
+        
+        
 
 ;; Expands forge records for each time the data is split
 (defn expand-forge [f fd t0 tf]
@@ -519,8 +527,7 @@
                  (:title_10 f) ;; Title_10
                  (:title f)]) ;; IO_Title 
         sorted-lines (sort-by #(nth % 5) lines)
-        newline (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))))
-        _ (swap! edited-forge-scrs conj newline)] 
+        newline (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))) t0 fd)]
     (replace-last sorted-lines newline))) 
 
 ;; ============================================================================
@@ -613,8 +620,12 @@
             vfile (str root "\\" (first (root->filetype root vmap-file?)))
             cfile (str root "\\" (first (root->filetype root vcons-file?)))]
         (demands->file (build-demand vfile cfile root) (str root "/" outfile))
-        (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))))
-         
+        (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))
+        (with-open [w (io/writer (str root "edited-forge-srcs.txt"))]
+          (doseq [line @edited-forge-srcs]
+            (doseq [val line]
+              (write! w (str val "\t"))) (writeln! w ""))
+          (.close w))))
     (catch java.io.FileNotFoundException e
       (println e)
       (println (str "Could not find demand inputs at " root)))))
@@ -622,12 +633,7 @@
 ;; Calls root->demad for multipile roots
 (defn roots->demand-files [roots]
   (let [roots (if (string? roots) [roots] roots)]
-    (doall (pmap #(root->demand-file %) roots))
-    
-    (with-open [w (io/writer (str (first roots) "edited-forge-scrs.txt"))]
-      (doseq [line @edited-forge-scrs]
-        (doseq [val line]
-          (write! w (str val "\t"))) (writeln! w ""))))
+    (doall (pmap #(root->demand-file %) roots)))
   nil)
 
 ;; Makes file select window appear
@@ -681,11 +687,9 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 (defn -main [& args]
   (if (nil? args)
     (->demand-file)
-    (->demand-file args))
-  (try
-    (System/exit 0) ;; Forces the jar to terminate, sometimes hangs after it is done.
-    (catch Exception e    
-      (println "DONE."))))
+    (->demand-file args)))
+
+
 ;; ============================================================================
 ;; ============================================================================
 

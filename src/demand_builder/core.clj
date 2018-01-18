@@ -5,15 +5,27 @@
    [clojure.java [io :as io]]
    [spork.util [io :refer [list-files fpath fname fext write! writeln!]]])
   (:import [java.io File FileNotFoundException]
-           [javax.swing JFrame JFileChooser]))
+           [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
 
 (set! *warn-on-reflection* true)
 ;; ============================================================================
 ;; ============================================================================
 
+(defn ->frame [& args] ;;Window for error message, first args is Title, second args is message
+  (let [f (JFrame.) p (JPanel.) ta (JTextArea.)]
+    (.setSize f 500 500) (.setDefaultCloseOperation f 3)
+    (.setRows ta 100) (.setSize ta 475 475) (.setLineWrap ta true)
+    (.setTitle f (first args)) (.setText ta (second args))
+    (.add p ta) (.add f p) (.setVisible f true) f))
 
-
-
+;;Returns num from string without throwing errors 
+(defn read-num [string]
+  (if string
+    (let [num (fn [string] (apply str (map #(re-matches #"[\d.]*" %) (map str string))))
+          n (clojure.string/split (num string) #"[.]")  t (take 2 n) b (drop 2 n)
+          d (read-string (str (first t) "." (second t) (apply str b)))]
+      (if (zero? (- d (int d))) (int d) d))
+    0))
 
 ;; ============================================================================
 ;; ===== FUNCTION FOR GENERAL IO ==============================================
@@ -48,6 +60,10 @@
 ;; Helper function used to format data from file
 (defn file->vecmap [filename fn1 fn2]
   (lines->vecmap (csv->lines filename) fn1 fn2))
+
+(defn read-header [file] ;;Reads first line of file and maps column name to index number
+  (let [h (with-open [r (clojure.java.io/reader file)] (clojure.string/split (first (line-seq r)) (re-pattern "\t")))]
+    (zipmap (map #(keyword (.trim (.toLowerCase %))) h) (range (count h)))))
 ;; ============================================================================
 ;; ============================================================================
 
@@ -551,14 +567,14 @@
 ;;  the final time period in the forge file needs to be changed to the final time from the map.
 (defn get-final-map-time [f vmap]
   ;(println (map #(list (:start %) (:duration %)) (:times (get vmap (:force-code f)))))
-  (apply max (map #(+ (read-string (:start %)) (read-string (:duration %))) (:times (get vmap (:force-code f))))))
+  (apply max (map #(+ (read-num (:start %)) (read-num (:duration %))) (:times (get vmap (:force-code f))))))
 
 
 
 ;; Converts forge data to list of formatted vectors
 (defn forge->lines [forges fd vmap]
   (let [lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)] ;;filter out non-data rows
-                              (expand-forge f fd (read-string (get-offset f vmap)) (get-final-map-time f vmap))))] ;;t0 passed as argument to expand-forge
+                              (expand-forge f fd (read-num (get-offset f vmap)) (get-final-map-time f vmap))))] ;;t0 passed as argument to expand-forge
     lines))
 
 ;; Uses vignette map to create list of demands from forge files
@@ -578,8 +594,6 @@
     (into (vmap->forge-demands vm vcons-data root) (vmap->vignette-demands vm vcons-data))))
 ;; ============================================================================
 ;; ============================================================================
-
-
 
 
 
@@ -614,27 +628,38 @@
 (defn root->demand-file [root & outfile]
   (try 
     (if (nil? root)
-      (println "No file selected.")
+      (do (println "No file selected.") (->frame "No files selected." "No Input files selected.") (throw (Exception. "NoInputFilesSelectedException")))
       (let [outfile (if outfile (first outfile) (str (last (clojure.string/split root #"[\\ | /]")) "_DEMAND.txt"))
             ;; If multiple maps or consolidate files, will only use the first one
             vfile (str root "\\" (first (root->filetype root vmap-file?)))
-            cfile (str root "\\" (first (root->filetype root vcons-file?)))]
+            cfile (str root "\\" (first (root->filetype root vcons-file?)))
+            _ (def vfile (first (root->filetype root vmap-file?))) _ (def cfile (first (root->filetype root vcons-file?)))]
         (demands->file (build-demand vfile cfile root) (str root "/" outfile))
         (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))
         (with-open [w (io/writer (str root "edited-forge-srcs.txt"))]
           (doseq [line @edited-forge-srcs]
             (doseq [val line]
               (write! w (str val "\t"))) (writeln! w ""))
-          (.close w))))
+          (.close w))
+        (->frame "File Created" (str "Demand File Created at:\n" 
+                                  (str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")
+                                  "\n\nInputs Used:\n" vfile "\n" cfile))))
     (catch java.io.FileNotFoundException e
       (println e)
-      (println (str "Could not find demand inputs at " root)))))
+      (println (str "Could not find demand inputs at " root))
+      (->frame "No Inputs Found" (str "Could not final all inputs at root: " root 
+                                   "\n\nFile Not Found At:\n" (.getMessage e)
+                                   "\n\nVignette Consolidated File:\t"cfile"\nVignette Map File:\t"vfile))))) 
+                                   
+
+
 
 ;; Calls root->demad for multipile roots
 (defn roots->demand-files [roots]
   (let [roots (if (string? roots) [roots] roots)]
-    (doall (pmap #(root->demand-file %) roots)))
-  nil)
+    (doall (pmap #(root->demand-file %) roots))))
+  
+    
 
 ;; Makes file select window appear
 (defn choose-file []
@@ -688,6 +713,8 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
   (if (nil? args)
     (->demand-file)
     (->demand-file args)))
+
+
 
 
 ;; ============================================================================
@@ -785,7 +812,7 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
       (:quantity time) ;; Quantity
       "1" ;; Demand Index
       (:start time) ;; Start day
-      (- (read-string (:end time)) (read-string (:start time))) ;; Duration
+      (- (read-num (:end time)) (read-num (:start time))) ;; Duration
       "45" ;; Overlap
       (:src f) ;; SRC
       "Uniform" ;; SourceFirst

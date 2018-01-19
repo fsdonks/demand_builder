@@ -647,7 +647,7 @@
     (catch java.io.FileNotFoundException e
       (println e)
       (println (str "Could not find demand inputs at " root))
-      (->frame "No Inputs Found" (str "Could not final all inputs at root: " root 
+      (->frame "No Inputs Found" (str "Could not find all inputs at root: " root 
                                    "\n\nFile Not Found At:\n" (.getMessage e)
                                    "\n\nVignette Consolidated File:\t"cfile"\nVignette Map File:\t"vfile))))) 
                                    

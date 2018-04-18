@@ -10,10 +10,12 @@
 (set! *warn-on-reflection* true)
 ;; ============================================================================
 ;; ============================================================================
+;A close operation of 3 will kill my repl, but we might want it for the uberjar.
+(def ^:dynamic *closeon* 2)
 
 (defn ->frame [& args] ;;Window for error message, first args is Title, second args is message
   (let [f (JFrame.) p (JPanel.) ta (JTextArea.)]
-    (.setSize f 500 500) (.setDefaultCloseOperation f 3)
+    (.setSize f 500 500) (.setDefaultCloseOperation f *closeon*)
     (.setRows ta 100) (.setSize ta 475 475) (.setLineWrap ta true)
     (.setTitle f (first args)) (.setText ta (second args))
     (.add p ta) (.add f p) (.setVisible f true) f))
@@ -601,10 +603,12 @@
 ;; ===== FUNCTIONS TO AUTOMATE MAKING DEMAND FILES GIVEN THE ROOT DIR =========
 ;; ===========================================================================
 
+(def output-headers ["Type" "Enabled" "Priority" "Quantity" "DemandIndex" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle"])
+
 ;; Writes list of demands to outfile 
 (defn demands->file [demands outfile]
   (with-open [w (io/writer outfile)]
-    (doseq [line (into [["Type" "Enabled" "Priority" "Quantity" "Demand Index" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle"]] demands)]
+    (doseq [line (into [output-headers] demands)]
       ;;(println line)
       (doseq [d line]
         (write! w (str d "\t")))
@@ -621,39 +625,39 @@
 
 ;; Gets filenames of filetype from root dir 
 (defn root->filetype [root fn-type]
-  (filter fn-type (map spork.util.io/fname (spork.util.io/list-files root))))
-  
+  (filter fn-type (map fname (list-files root))))
+
+(defn find-file [root f]
+  "returns the path of file from root when filepaths are filtered by f"
+  (str root "\\" (first (root->filetype root f))))
+
 ;; Creates Demand records from files in the root directory
 ;; If more than 1 vignette map or vignette consolidated file is in the directory, only the first one is used
 (defn root->demand-file [root & outfile]
-  (try 
-    (if (nil? root)
-      (do (println "No file selected.") (->frame "No files selected." "No Input files selected.") (throw (Exception. "NoInputFilesSelectedException")))
-      (let [outfile (if outfile (first outfile) (str (last (clojure.string/split root #"[\\ | /]")) "_DEMAND.txt"))
-            ;; If multiple maps or consolidate files, will only use the first one
-            vfile (str root "\\" (first (root->filetype root vmap-file?)))
-            cfile (str root "\\" (first (root->filetype root vcons-file?)))
-            _ (def vfile (first (root->filetype root vmap-file?))) _ (def cfile (first (root->filetype root vcons-file?)))]
-        (demands->file (build-demand vfile cfile root) (str root "/" outfile))
-        (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))
-        (with-open [w (io/writer (str root "edited-forge-srcs.txt"))]
-          (doseq [line @edited-forge-srcs]
-            (doseq [val line]
-              (write! w (str val "\t"))) (writeln! w ""))
-          (.close w))
-        (->frame "File Created" (str "Demand File Created at:\n" 
-                                  (str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")
-                                  "\n\nInputs Used:\n" vfile "\n" cfile))))
-    (catch java.io.FileNotFoundException e
-      (println e)
-      (println (str "Could not find demand inputs at " root))
-      (->frame "No Inputs Found" (str "Could not find all inputs at root: " root 
-                                   "\n\nFile Not Found At:\n" (.getMessage e)
-                                   "\n\nVignette Consolidated File:\t"cfile"\nVignette Map File:\t"vfile))))) 
-                                   
-
-
-
+  (when (nil? root)
+    (do (println "No file selected.") (->frame "No files selected." "No Input files selected.") (throw (Exception. "NoInputFilesSelectedException"))))
+  (let [outfile (if outfile (first outfile) (str (last (clojure.string/split root #"[\\ | /]")) "_DEMAND.txt"))
+        ;; If multiple maps or consolidate files, will only use the first one
+        vfile (find-file root vmap-file?)
+        cfile (find-file root vcons-file?)]
+    (try 
+      (demands->file (build-demand vfile cfile root) (str root "/" outfile))
+      (println (str "Created demand file "(str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")))
+      (with-open [w (io/writer (str root "edited-forge-srcs.txt"))]
+        (doseq [line @edited-forge-srcs]
+          (doseq [val line]
+            (write! w (str val "\t"))) (writeln! w ""))
+        (.close w))
+      
+      (->frame "File Created" (str "Demand File Created at:\n" 
+                                   (str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")
+                                   "\n\nInputs Used:\n" vfile "\n" cfile))
+      (catch java.io.FileNotFoundException e
+        (println e)
+        (println (str "Could not find demand inputs at " root))
+        (->frame "No Inputs Found" (str "Could not find all inputs at root: " root 
+                                        "\n\nFile Not Found At:\n" (.getMessage e)
+                                        "\n\nVignette Consolidated File:\t"(fname cfile)"\nVignette Map File:\t"(fname vfile)))))))                                
 ;; Calls root->demad for multipile roots
 (defn roots->demand-files [roots]
   (let [roots (if (string? roots) [roots] roots)]
@@ -710,9 +714,10 @@ Creates demand files for each path.
 When no argument passed in, opens GUI to select path/paths (can select multiple paths)
 "
 (defn -main [& args]
-  (if (nil? args)
+  (binding [*closeon* 3]
+    (if (nil? args)
     (->demand-file)
-    (->demand-file args)))
+    (->demand-file args))))
 
 
 

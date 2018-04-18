@@ -1,0 +1,12 @@
+Made by Craig.
+
+Left tool output in "Input" folder since that is how
+the tool works.  Expected results are in the "Output"
+folder.
+
+Assigned requirements : 2+ SRCs, 2+ demand groups
+
+Resulting case includes:
+
+3 SRCs
+3 Demand groups (1 forge and 2 vignettes)

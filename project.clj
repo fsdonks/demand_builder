@@ -12,5 +12,5 @@
   :aot [demand_builder.core]
   ;:target-path "target/%s"
   ;:profiles {:uberjar {:aot :all}}
-  
+  ;:profiles {:dev {:resource-paths ["test/resources"]}}
   )

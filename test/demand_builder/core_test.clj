@@ -37,7 +37,8 @@
    (add-path "simplest")
    (add-path "TestSet2")
    (add-path "TestCase3")
-   (add-path "ManySRCs-1DemandGroup")])
+   (add-path "ManySRCs-1DemandGroup")
+   (add-path "complexest")])
 
 (deftest demandbuilder
   (doseq [p test-paths

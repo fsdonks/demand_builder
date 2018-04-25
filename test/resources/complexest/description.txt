@@ -1,0 +1,20 @@
+Made by Craig.
+
+Left tool output in "Input" folder since that is how
+the tool works.  Expected results are in the "Output"
+folder.
+
+Assigned requirements : 2+ SRCs, 2+ demand groups
+
+These were minimum requirements.  This was the initial creation of notional 
+data on NIPR.  I glanced at "test" input data on SNET and tried to capture
+the more interesting records that might cause the test to fail.  
+
+First try, this actually failed when there was no demand for Chipmunks, but
+that kind of record is unlikely to be in the FORGE data, so I put a quantity
+in there for people to use this test set as a template for other tests.
+
+Resulting case includes:
+
+3 SRCs
+3 Demand groups (1 forge and 2 vignettes)

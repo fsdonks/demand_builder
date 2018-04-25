@@ -1,4 +1,10 @@
-FORGE demands needs to start on the day specified by the mapping file.
-
-The duration of a next to last FORGE demand for SRC 01225K000 is 0 when
+The duration of a next to last FORGE demand for SRC 01225K000 Ponies is 2 when
 it should be 8.  Last demand should probably be 8 too.
+
+Well, let's take a look at what the vignett MAP says.
+MAP says 99 duration should be 91 and start day 1092 = End day of 1183
+This is actually end day of the demand.
+
+Are we letting the vignette map curtail and extend?
+Yes. According to file 'Updates Dec17-Jan18.txt'
+Expected output is edited as such.

@@ -4,14 +4,10 @@
             [spork.util.table :as tbl]))
 
 ;C-c C-k to load me and then switch to this namespace to run-tests
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
-
 
 (defn get-output
-  "Given a path to a taa_test_data directory, compare the results of
-  the demand builder with the expected results"
+  "Given a path to a taa_test_data directory, get the demand builder
+  results."
   [path]
   (let [inpath (str path "/Input/")
         vignettes (find-file inpath vcons-file?)
@@ -43,5 +39,10 @@
   (doseq [p test-paths
           :let [out (get-output p)
                 expected (get-expected p)]]
+    (println (str "Testing " p))
     (testing "Original output mispelled category, so let's make sure the fields match."
-      (is (= (keys (first out)) (keys (first expected)))))))
+      (is (= (keys (first out)) (keys (first expected)))))
+    (testing "If we compare sets, won't account for duplicates."
+      (is (= (count out) (count expected))))
+    (testing "Does the expected output match the output?"
+      (is (= (set out) (set expected))))))

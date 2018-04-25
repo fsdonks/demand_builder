@@ -36,7 +36,8 @@
   [(add-path "wrong_phase_extended")
    (add-path "simplest")
    (add-path "TestSet2")
-   (add-path "TestCase3")])
+   (add-path "TestCase3")
+   (add-path "ManySRCs-1DemandGroup")])
 
 (deftest demandbuilder
   (doseq [p test-paths

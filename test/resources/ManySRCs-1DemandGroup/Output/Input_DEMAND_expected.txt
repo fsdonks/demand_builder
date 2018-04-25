@@ -1,0 +1,21 @@
+Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title 10_32	OITitle
+DemandRecord	TRUE	1	2	1	91	273	45	01285K000	Uniform	Ungrouped	S-7337	S-7337	Rotational	10	ATK/RECON BN (24x AH-64)
+DemandRecord	TRUE	1	1	1	91	273	45	01707R000	Uniform	Ungrouped	S-706	S-706	Rotational	10	GRAY EAGLE UAS CO (MQ-1C) (SEP)
+DemandRecord	TRUE	1	2	1	1101	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
+DemandRecord	TRUE	1	4	1	1109	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
+DemandRecord	TRUE	1	2	1	1117	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
+DemandRecord	TRUE	1	4	1	1125	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
+DemandRecord	TRUE	1	1	1	1133	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
+DemandRecord	TRUE	1	9	1	1141	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
+DemandRecord	TRUE	1	3	1	1149	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
+DemandRecord	TRUE	1	9	1	1157	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
+DemandRecord	TRUE	1	4	1	1165	8	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies
+DemandRecord	TRUE	1	7	1	1181	2	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies
+DemandRecord	TRUE	1	1	1	1101	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
+DemandRecord	TRUE	1	8	1	1109	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
+DemandRecord	TRUE	1	1	1	1117	16	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
+DemandRecord	TRUE	1	1	1	1133	8	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos
+DemandRecord	TRUE	1	8	1	1141	24	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos
+DemandRecord	TRUE	1	8	1	1165	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos
+DemandRecord	TRUE	1	4	1	1173	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos
+DemandRecord	TRUE	1	7	1	1181	2	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos

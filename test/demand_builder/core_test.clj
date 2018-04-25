@@ -33,7 +33,8 @@
 (defn add-path [test-name]  (str "test/resources/" test-name))
 
 (def test-paths
-  [(add-path "wrong_phase_extended")])
+  [(add-path "wrong_phase_extended")
+   (add-path "simplest")])
 
 (deftest demandbuilder
   (doseq [p test-paths

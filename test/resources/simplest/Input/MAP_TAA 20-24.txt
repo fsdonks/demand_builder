@@ -1,0 +1,2 @@
+Force List Code (ID)	TAA 20-24 ISC Scenarios and Vignettes	BCT Original	BCT New	Start	Duration	BCT Quantity
+Beacon	B			20	1	9

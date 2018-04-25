@@ -1,0 +1,5 @@
+-The duration of the demands for FORGE demands should be specified by the MAP
+
+-Demandgroup of all CONSOLIDATED demands should be Ungrouped.
+Event/Force List Code should be the demangroup Vignette
+Second MAP field titled "Scenarios and Vignettes" contains the Operation 

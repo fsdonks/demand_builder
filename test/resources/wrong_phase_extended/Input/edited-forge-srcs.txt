@@ -1,2 +1,0 @@
-DemandRecord	TRUE	1	7	1	1181	2	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos	
-DemandRecord	TRUE	1	7	1	1181	2	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	

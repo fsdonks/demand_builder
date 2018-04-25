@@ -34,7 +34,8 @@
 
 (def test-paths
   [(add-path "wrong_phase_extended")
-   (add-path "simplest")])
+   (add-path "simplest")
+   (add-path "Test Set 2")])
 
 (deftest demandbuilder
   (doseq [p test-paths

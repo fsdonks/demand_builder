@@ -1,0 +1,5 @@
+Made by Spencer.
+
+1 SRC, 2 Demand Groups, 1 Compo
+S-706 is in the mapping but no other data exists for it.  I think the user should be warned about
+this.

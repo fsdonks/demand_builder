@@ -5,6 +5,28 @@
 
 ;C-c C-k to load me and then switch to this namespace to run-tests
 
+(defn run-tests-nout
+  "When you don't want to have the expected and actual outputs printed to the REPL, you can use this instead of run-tests"
+  []
+  (defmethod report :fail [m]
+    (with-test-out
+      (inc-report-counter :fail)
+      (println "\nFAIL in" (testing-vars-str m))
+      (when (seq *testing-contexts*) (println (testing-contexts-str)))
+      (when-let [message (:message m)] (println message))
+      (println "expected: something else")
+      (println "  actual: not else")))
+  (let [res (run-tests)]
+    (defmethod report :fail [m]
+      (with-test-out
+        (inc-report-counter :fail)
+        (println "\nFAIL in" (testing-vars-str m))
+        (when (seq *testing-contexts*) (println (testing-contexts-str)))
+        (when-let [message (:message m)] (println message))
+        (println "expected:" (pr-str (:expected m)))
+        (println "  actual:" (pr-str (:actual m)))))
+    res))
+
 (defn get-output
   "Given a path to a taa_test_data directory, get the demand builder
   results."
@@ -38,7 +60,8 @@
    (add-path "TestSet2")
    (add-path "TestCase3")
    (add-path "ManySRCs-1DemandGroup")
-   (add-path "complexest")])
+   (add-path "complexest")
+   (add-path "ungrouped")])
 
 (deftest demandbuilder
   (doseq [p test-paths

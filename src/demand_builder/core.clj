@@ -480,7 +480,7 @@
      (:src vmerged) ;; SRC
      "Uniform" ;; SourceFirst
      ;; Demand Group
-     "Ungrouped" 
+     (if (= "S-" (subs (:force-code vmerged) 0 2)) (:force-code vmerged) "Ungrouped") 
      (:force-code vmerged) ;; Vignette 
      (if (or (= "" ttl) (nil? ttl)) (:force-code vmerged) ttl) ;; Operation
      (if (= "H" (str (first (:force-code vmerged)))) "NonBOG" "Rotational") ;; Catagory

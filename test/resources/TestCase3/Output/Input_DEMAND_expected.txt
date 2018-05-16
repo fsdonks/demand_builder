@@ -1,7 +1,7 @@
 Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title 10_32	OITitle
-DemandRecord	TRUE	1	6	1	1217	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
-DemandRecord	TRUE	1	4	1	1225	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
-DemandRecord	TRUE	1	7	1	1233	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
-DemandRecord	TRUE	1	7	1	1241	8	45	19473K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	MP CO CBT SPT
-DemandRecord	TRUE	1	6	1	1249	24	45	19473K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	MP CO CBT SPT
-DemandRecord	TRUE	1	6	1	1273	227	45	19473K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	6	1	1216	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	4	1	1224	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	7	1	1232	8	45	19473K000	Uniform	SE-99	SE-99	PH I	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	7	1	1240	8	45	19473K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	6	1	1248	24	45	19473K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	MP CO CBT SPT
+DemandRecord	TRUE	1	6	1	1272	228	45	19473K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	MP CO CBT SPT

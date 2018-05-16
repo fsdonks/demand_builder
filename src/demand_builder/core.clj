@@ -533,7 +533,7 @@
                  "1" ;; Priority
                  (:quantity time) ;; Quantity
                  "1" ;; Demand Index
-                 (str (+ t0 (:start time))) ;; Start day - added offset t0 from start time of scenario in v-map
+                 (str (- (+ t0 (:start time)) 1)) ;; Start day - added offset t0 from start time of scenario in v-map
                  (if (= 0 :duration time) "8" (:duration time)) ;; Duration
                  "45" ;; Overlap
                  (:src f) ;; SRC

@@ -567,24 +567,35 @@
 ;; The last time period in forge should end on the last time period specified by the map. 
 ;; If there is a difference in the map end time for a scenario and the end time in the forge data,
 ;;  the final time period in the forge file needs to be changed to the final time from the map.
-(defn get-final-map-time [f vmap]
-  ;(println (map #(list (:start %) (:duration %)) (:times (get vmap (:force-code f)))))
-  (apply max (map #(+ (read-num (:start %)) (read-num (:duration %))) (:times (get vmap (:force-code f))))))
-
-
+(defn get-final-map-time [f vmap expand]
+  ;(println (str expand "\t" f))
+  ;;only expand if it is the last period in the last phase and the map duration is greater than the forge duration
+  (if expand
+    (apply max (map #(+ (read-num (:start %)) (read-num (:duration %))) (:times (get vmap (:force-code f)))))
+    (+ (last (map #(read-num (:start %)) (:times (get vmap (:force-code f)))))
+       (apply max (map #(+ (:start %) (:duration %)) (:times f))))))
 
 ;; Converts forge data to list of formatted vectors
 (defn forge->lines [forges fd vmap]
-  (let [lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)] ;;filter out non-data rows
-                              (expand-forge f fd (read-num (get-offset f vmap)) (get-final-map-time f vmap))))] ;;t0 passed as argument to expand-forge
-    lines))
+    (let 
+      [last-phase (last (sort-by #(:start %) (make-phases (phase-header fd) (phase-indx fd) [] fd)))
+       last-day-map (inc (* 8 (- (:end last-phase) (:start last-phase))))       
+       lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)]
+                             ;;filter out non-data rows
+                             (expand-forge f fd (read-num (get-offset f vmap)) 
+                               (if (> (last (map #(+ (:start %) (:duration %)) (:times f))) last-day-map)
+                                 (get-final-map-time f vmap true)
+                                 (get-final-map-time f vmap false)))))]  ;;t0 passed as argument to expand-forge 
+      lines))
+                             
 
 ;; Uses vignette map to create list of demands from forge files
 (defn vmap->forge-demands [vm vcons root]
   (apply concat 
-         (for [fc (filter #(= "SE" (apply str (take 2 %))) (keys vm))
-               :let [fdata (forge->data (fc->forge-file fc root) vcons)]]
-           (forge->lines fdata (csv->lines (fc->forge-file fc root)) vm))))
+    ;;need to remove entries that don't have any demands (all blank cells for demands) in FORGE file     
+    (for [fc (filter #(and (< (count %) (dec (count (keys forge)))) (= "SE" (apply str (take 2 %)))) (keys vm))
+             :let [fdata (forge->data (fc->forge-file fc root) vcons)]]
+        (forge->lines fdata (csv->lines (fc->forge-file fc root)) vm))))
 
 ;; Uses vignette map to create list of demands from vignette consolidated data
 (defn vmap->vignette-demands [vm vcons]
@@ -716,8 +727,8 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 (defn -main [& args]
   (binding [*closeon* 3]
     (if (nil? args)
-    (->demand-file)
-    (->demand-file args))))
+     (->demand-file)
+     (->demand-file args))))
 
 
 

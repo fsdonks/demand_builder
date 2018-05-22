@@ -9,8 +9,9 @@
                    
   :main demand_builder.core
   ;:skip-aot demand_builder.core
-  :aot [demand_builder.core]
+  :aot [demand_builder.core
+        demand_builder.chart])
   ;:target-path "target/%s"
   ;:profiles {:uberjar {:aot :all}}
   ;:profiles {:dev {:resource-paths ["test/resources"]}}
-  )
+  

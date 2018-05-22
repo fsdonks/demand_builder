@@ -65,7 +65,7 @@
 
 (defn read-header [file] ;;Reads first line of file and maps column name to index number
   (let [h (with-open [r (clojure.java.io/reader file)] (clojure.string/split (first (line-seq r)) (re-pattern "\t")))]
-    (zipmap (map #(keyword (.trim (.toLowerCase %))) h) (range (count h)))))
+    (zipmap (map #(keyword (.trim (.toLowerCase ^String %))) h) (range (count h)))))
 ;; ============================================================================
 ;; ============================================================================
 
@@ -328,9 +328,9 @@
 ;; Builds forge data from FORGE filename
 (defn fm->data [filename]
   (let [lines (csv->lines filename)]
-    (for [line lines]
-      (when (<= (:time-start forge) (count line)) 
-        (forge-data->map line forge lines)))))
+   (for [line lines]
+     (when (< (:time-start forge) (count line)) 
+       (forge-data->map line forge lines)))))
 
 ;; Function to get force code from file name for forge data 
 (defn forge-file->fc [forge-file]
@@ -348,8 +348,8 @@
   (let [fc (forge-file->fc filename) data (fm->data filename)]
     (for [d data]
       (assoc 
-       (assoc d :force-code fc)
-       :title_10 "10"))))
+        (assoc d :force-code fc)
+        :title_10 "10"))))
 ;; ============================================================================
 ;; ============================================================================
 
@@ -593,9 +593,9 @@
 (defn vmap->forge-demands [vm vcons root]
   (apply concat 
     ;;need to remove entries that don't have any demands (all blank cells for demands) in FORGE file     
-    (for [fc (filter #(and (< (count %) (dec (count (keys forge)))) (= "SE" (apply str (take 2 %)))) (keys vm))
-             :let [fdata (forge->data (fc->forge-file fc root) vcons)]]
-        (forge->lines fdata (csv->lines (fc->forge-file fc root)) vm))))
+    (for [fc (filter #(= "SE" (apply str (take 2 %))) (keys vm))
+          :let [fdata (forge->data (fc->forge-file fc root) vcons)]]
+      (forge->lines fdata (csv->lines (fc->forge-file fc root)) vm))))
 
 ;; Uses vignette map to create list of demands from vignette consolidated data
 (defn vmap->vignette-demands [vm vcons]

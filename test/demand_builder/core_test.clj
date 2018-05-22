@@ -47,10 +47,13 @@
          (into [])
          (map (fn [r] (reduce-kv (fn [acc k v] (assoc acc k (str v))) {} r))))))
 
+;;changed to a stronger (but less informative) equality check.  Implement your
+;;own diffing routine if need be.  This will just check the hash of each record set,
+;;which in turn hashes the records.  Hashes should be equal.
 (defn compare-demands
   "given a path to a taa_test_data directory, check to see if the set of records from the demand builder match the expected outputs"
   [path]
-  (clojure.set/difference (set (get-expected path)) (set (get-output path))))
+  (= (set (get-expected path)) (set (get-output path))))
 
 (defn add-path [test-name]  (str "test/resources/" test-name))
 
@@ -61,7 +64,8 @@
    (add-path "TestCase3")
    (add-path "ManySRCs-1DemandGroup")
    (add-path "complexest")
-   (add-path "ungrouped")])
+   ;;temporarily removed since wunderkind forgot to add directory hah!
+   #_(add-path "ungrouped")])
 
 (deftest demandbuilder
   (doseq [p test-paths

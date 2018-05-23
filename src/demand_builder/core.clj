@@ -3,7 +3,9 @@
   (:gen-class)
   (:require 
    [clojure.java [io :as io]]
-   [spork.util [io :refer [list-files fpath fname fext write! writeln!]]])
+   [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
+   [demand_builder chart])
+ 
   (:import [java.io File FileNotFoundException]
            [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
 
@@ -485,7 +487,8 @@
      (if (or (= "" ttl) (nil? ttl)) (:force-code vmerged) ttl) ;; Operation
      (if (= "H" (str (first (:force-code vmerged)))) "NonBOG" "Rotational") ;; Catagory
      (:title_10 vmerged) ;; Title_10 
-     (:title vmerged)])) ;; IO_Title
+     (:title vmerged) ;; IO_Title
+     (:str vmerged)])) ;;People/Strength per SRC
 
 ;; Expands forge records for each time the data is split
 (defn expand-forge [f fd t0]
@@ -520,7 +523,7 @@
         e (apply max (vals (phase-indx fd)))]
     (if (>= e t) ;;only replace when line is in the last phase. 
       line
-      (let [newline (concat (conj (vec (take 6 line)) d0) (vec (take-last 9 line)))
+      (let [newline (concat (conj (vec (take 6 line)) d0) (vec (take-last 10 line)))
             _ (swap! edited-forge-srcs conj newline)] newline))))
         
         
@@ -543,7 +546,8 @@
                  (get-phase-from-day (:start time) fd) ;; Operation - where time is the forge time, not total time
                  "Rotational" ;; Catagory
                  (:title_10 f) ;; Title_10
-                 (:title f)]) ;; IO_Title 
+                 (:title f) ;; IO_Title
+                 (:str f)]) ;;People/Strength per SRC 
         sorted-lines (sort-by #(nth % 5) lines)
         newline (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))) t0 fd)]
     (replace-last sorted-lines newline))) 
@@ -614,7 +618,7 @@
 ;; ===== FUNCTIONS TO AUTOMATE MAKING DEMAND FILES GIVEN THE ROOT DIR =========
 ;; ===========================================================================
 
-(def output-headers ["Type" "Enabled" "Priority" "Quantity" "DemandIndex" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle"])
+(def output-headers ["Type" "Enabled" "Priority" "Quantity" "DemandIndex" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle" "People"])
 
 ;; Writes list of demands to outfile 
 (defn demands->file [demands outfile]
@@ -663,6 +667,9 @@
       (->frame "File Created" (str "Demand File Created at:\n" 
                                    (str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt")
                                    "\n\nInputs Used:\n" vfile "\n" cfile))
+      (demand_builder.chart/demand-file->sand-charts (str root (last (clojure.string/split root #"[\\|/]")) "_DEMAND.txt") :save true :view true)
+      
+      
       (catch java.io.FileNotFoundException e
         (println e)
         (println (str "Could not find demand inputs at " root))

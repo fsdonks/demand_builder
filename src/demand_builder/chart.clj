@@ -30,7 +30,7 @@
 
 ;;; ***NO QUANTITY VARIABLE IN DEMAND FILE, USING MANUALLY ADDED PEOPLE FOR TESTING ***
 (defn total-at-time [vdata time]
-  (apply + (map #(read-num (:People %)) (in-period vdata time (inc time)))))
+  (apply + (map #(* (read-num (:Quantity %)) (read-num (:People %))) (in-period vdata time (inc time)))))
 
 (defn coords [vdata global-start global-end]
   (let [times (range global-start global-end)

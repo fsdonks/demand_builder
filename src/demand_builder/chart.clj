@@ -1,7 +1,8 @@
 (ns demand_builder.chart
    (:require [demand_builder [core :refer [read-num]]]
              [clojure.java [io :as io]]
-             [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]))
+             [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
+             [incanter core charts stats datasets]))
 
 ;;Name space for formatting charts using data from demand builder output
 
@@ -23,22 +24,57 @@
   (apply max (map #(+ (read-num (:Duration %)) (read-num (:StartDay %))) vdata)))
 
 (defn in-period [vdata start end]
-  (filter #(and (>  start (read-num (:StartDay %))) 
-                (< end (+ (read-num (:Duration %)) (read-num (:StartDay %)))))
+  (filter #(and (>=  start (read-num (:StartDay %))) 
+                (<= end (+ (read-num (:Duration %)) (read-num (:StartDay %)))))
            vdata))
 
 ;;; ***NO QUANTITY VARIABLE IN DEMAND FILE, USING MANUALLY ADDED PEOPLE FOR TESTING ***
 (defn total-at-time [vdata time]
   (apply + (map #(read-num (:People %)) (in-period vdata time (inc time)))))
 
-(defn coords [vdata]
-  (let [times (range (vignette-start vdata) (vignette-end vdata))
+(defn coords [vdata global-start global-end]
+  (let [times (range global-start global-end)
         quantity (map #(total-at-time vdata %) times)]
     {:times times :quantities quantity}))
+
+(defn global-start [data]
+  (apply min
+    (for [d data]
+      (vignette-start (second d)))))
+
+(defn global-end [data]
+  (apply max
+    (for [d data]
+      (vignette-end (second d)))))
 
 ;; *** ADDED PEOPLE FIELD IN TEST DATA, REAL DEMAND FILE HAS NO QUANTITY VALUES, WILL NEED TO BE LOOKED UP ***
 ;;Returns a list of maps with the Vignette, sequence of time periods it is active, and aggregate quantity at the corresponding time
 (defn get-plot-data [data]
-  (for [k (keys data)]
-    (conj {:Vignette k} (coords (get data k)))))
+  (for [k (keys data) :let [start (global-start data) end (global-end data)]]
+    (conj {:Vignette k} (coords (get data k) start end))))
+
+(defn sand-chart [vdata]
+  (incanter.charts/time-series-plot (:times vdata) (:quantities vdata)))
+
+(defn sand-charts [data & {:keys [title] :or {title ""}}]
+  (let [first-plot (first data)
+        chart (incanter.charts/time-series-plot (:times first-plot) (:quantities first-plot)
+                :title title :x-label "Time" :y-label "Quantity" :legend true :series-label (:Vignette first-plot))]
+    (doseq [d (drop 1 data)]
+      (incanter.charts/add-lines chart (:times d) (:quantities d) :series-label (:Vignette d)))
+    chart))
+
+;;Function to build sand chart from formatted demand file
+;;Save will save the chat as a png with the filename filename-SandChart.png in the same directory as the original file
+;;View will create a JFrame and set it as visible
+;;Returns JFreeChart object
+(defn demand-file->sand-charts [filename & {:keys [save view] :or {save false view true}}]
+  (let [prefix (first (clojure.string/split (last (clojure.string/split filename #"[/|\\]")) #"[.]"))
+        chart (sand-charts (get-plot-data (read-formatted-demand filename)) :title (str prefix "-SandChart"))]
+    (when save
+      (incanter.core/save chart (str  filename "-SandChart.png")))
+    (when view
+      (incanter.core/view chart))
+    chart))
+
 

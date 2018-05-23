@@ -1,13 +1,12 @@
 ;; ============================================================================
 (ns demand_builder.core
   (:gen-class)
-  (:require 
-   [clojure.java [io :as io]]
-   [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
-   [demand_builder chart])
- 
+  (:require [clojure.java [io :as io]]
+            [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
+            [demand_builder [chart :as c]])
   (:import [java.io File FileNotFoundException]
            [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
+
 
 (set! *warn-on-reflection* true)
 ;; ============================================================================

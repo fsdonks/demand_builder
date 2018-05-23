@@ -1,10 +1,17 @@
 (ns demand_builder.chart
-   (:require [demand_builder [core :refer [read-num]]]
-             [clojure.java [io :as io]]
+   (:require [clojure.java [io :as io]]
              [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
              [incanter core charts stats datasets]))
 
 ;;Name space for formatting charts using data from demand builder output
+
+(defn read-num [string]
+  (if string
+    (let [num (fn [string] (apply str (map #(re-matches #"[\d.]*" %) (map str string))))
+          n (clojure.string/split (num string) #"[.]")  t (take 2 n) b (drop 2 n)
+          d (read-string (str (first t) "." (second t) (apply str b)))]
+      (if (zero? (- d (int d))) (int d) d))
+    0))
 
 (defn read-formatted-demand [filename]
   (with-open [r (clojure.java.io/reader filename)] 

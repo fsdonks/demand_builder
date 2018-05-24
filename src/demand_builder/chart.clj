@@ -114,7 +114,7 @@
   (let [prefix (first (clojure.string/split (last (clojure.string/split filename #"[/|\\]")) #"[.]"))
         chart (build-chart (get-plot-data (read-formatted-demand filename)) :cont cont :title (str prefix "- Sand Chart"))]
     (when save
-      (incanter.core/save chart (str  filename "-SandChart.png")))
+      (incanter.core/save chart (str (apply str (take (- (count filename) 4) filename)) "-SandChart.png")))
     (when view
       (incanter.core/view chart))
     chart))

@@ -86,12 +86,24 @@
         length (count (:times (first data)))
         groupby (flatten (map #(flatten (if (or true %) keys)) (range length)))
         times (flatten (for [t (range start (inc end))] (rep t (count keys))))
-        quantities (flatten (map #(:quantities %) data))]
-    (if (= true cont)
-      (incanter.charts/stacked-area-chart times quantities :group-by groupby 
-        :legend true :x-label "Time Period" :y-label "Quantity" :title title)
-      (incanter.charts/stacked-bar-chart times quantities :group-by groupby 
-        :legend true :x-label "Time Period" :y-label "Quantity" :title title))))
+        quantities (flatten (map #(:quantities %) data))
+        chart (if (= true cont)
+                (incanter.charts/stacked-area-chart times quantities :group-by groupby 
+                  :legend true :x-label "Time Period" :y-label "Quantity" :title title)
+                (incanter.charts/stacked-bar-chart times quantities :group-by groupby 
+                  :legend true :x-label "Time Period" :y-label "Quantity" :title title))
+        invisible (java.awt.Font. "Tahoma" 0 0)
+        visible (java.awt.Font. "Tahoma" 0 8)]
+    (.setMaximumCategoryLabelLines (.getDomainAxis (.getCategoryPlot chart)) 5) ;;can change for readability 
+    (doseq [i (range start (inc end))]
+      ;;need to set some of the tick label to be invisible to make it more readable
+      ;;if the label overlap, they will get replaceced by "..."
+      (if (zero? (rem i (Math/floor (/ end 20)))) ;Maximum of 20 label tick points, can change if need more
+        (.setTickLabelFont (.getDomainAxis (.getCategoryPlot chart)) i visible)
+        (.setTickLabelFont (.getDomainAxis (.getCategoryPlot chart)) i invisible)))
+    chart))
+   
+    
 
 ;;Function to build sand chart from formatted demand file
 ;;Save will save the chat as a png with the filename filename-SandChart.png in the same directory as the original file

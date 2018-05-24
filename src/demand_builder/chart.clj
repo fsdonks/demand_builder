@@ -86,7 +86,8 @@
         length (count (:times (first data)))
         groupby (flatten (map #(flatten (if (or true %) keys)) (range length)))
         times (flatten (for [t (range start (inc end))] (rep t (count keys))))
-        quantities (flatten (map #(:quantities %) data))
+        ;quantities (flatten (map #(:quantities %) data))
+        quantities (flatten (for [t (range 0 length)] (map #(nth (:quantities %) t) data)))
         chart (if (= true cont)
                 (incanter.charts/stacked-area-chart times quantities :group-by groupby 
                   :legend true :x-label "Time Period" :y-label "Quantity" :title title)
@@ -112,7 +113,7 @@
 ;;Returns JFreeChart object
 (defn demand-file->sand-charts [filename & {:keys [save view cont] :or {save false view true cont true}}]
   (let [prefix (first (clojure.string/split (last (clojure.string/split filename #"[/|\\]")) #"[.]"))
-        chart (build-chart (get-plot-data (read-formatted-demand filename)) :cont cont :title (str prefix "- Sand Chart"))]
+        chart (build-chart (get-plot-data (read-formatted-demand filename)) :cont cont :title (str prefix " - Sand Chart"))]
     (when save
       (incanter.core/save chart (str (apply str (take (- (count filename) 4) filename)) "-SandChart.png")))
     (when view

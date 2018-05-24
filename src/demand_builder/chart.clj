@@ -20,8 +20,6 @@
              lines (map #(clojure.string/split % #"\t") (line-seq r)) ;;header alread read, no need to drop
              data (for [line lines]
                     (zipmap (map keyword firstline) line))]
-         ;(println firstline)
-         ;(doseq [d data] (identity d))
          (group-by #(get % :Vignette) data))))
          
 (defn vignette-start [vdata]
@@ -35,7 +33,6 @@
                 (<= end (+ (read-num (:Duration %)) (read-num (:StartDay %)))))
            vdata))
 
-;;; ***NO QUANTITY VARIABLE IN DEMAND FILE, USING MANUALLY ADDED PEOPLE FOR TESTING ***
 (defn total-at-time [vdata time]
   (apply + (map #(* (read-num (:Quantity %)) (read-num (:People %))) (in-period vdata time (inc time)))))
 
@@ -54,15 +51,16 @@
     (for [d data]
       (vignette-end (second d)))))
 
-;; *** ADDED PEOPLE FIELD IN TEST DATA, REAL DEMAND FILE HAS NO QUANTITY VALUES, WILL NEED TO BE LOOKED UP ***
 ;;Returns a list of maps with the Vignette, sequence of time periods it is active, and aggregate quantity at the corresponding time
 (defn get-plot-data [data]
   (for [k (keys data) :let [start (global-start data) end (global-end data)]]
     (conj {:Vignette k} (coords (get data k) start end))))
 
+;;OLD - will create histogram of data, for sand chart (stacked chart) use build-chart
 (defn sand-chart [vdata]
   (incanter.charts/time-series-plot (:times vdata) (:quantities vdata)))
 
+;;OLD - will create histogram of data, for sand chart (stacked chart) use build-chart
 (defn sand-charts [data & {:keys [title] :or {title ""}}]
   (let [first-plot (first data)
         chart (incanter.charts/time-series-plot (:times first-plot) (:quantities first-plot)
@@ -71,13 +69,38 @@
       (incanter.charts/add-lines chart (:times d) (:quantities d) :series-label (:Vignette d)))
     chart))
 
+
+
+;(incanter.core/view (incanter.charts/stacked-area-chart [1 1 1 2 2 2 3 3 3] [10 20 30 15 25 35] :group-by [1 2 3 1 2 3] :legend true))
+
+;;Repeates val n times
+(defn rep [val n]
+  (map #(if (or true %) val) (range n)))
+
+;;cont option determins in time between periods is continous or discrete
+;;If cont is true, will build a stacked-area-chart, otherwise, will build a stacked-bar-chart
+(defn build-chart [data & {:keys [title cont] :or {title "" cont true}}]
+  (let [start (apply min (map #(apply min (:times %)) data))
+        end (apply max (map #(apply max (:times %)) data))
+        keys (map #(:Vignette %) data)
+        length (count (:times (first data)))
+        groupby (flatten (map #(flatten (if (or true %) keys)) (range length)))
+        times (flatten (for [t (range start (inc end))] (rep t (count keys))))
+        quantities (flatten (map #(:quantities %) data))]
+    (if (= true cont)
+      (incanter.charts/stacked-area-chart times quantities :group-by groupby 
+        :legend true :x-label "Time Period" :y-label "Quantity" :title title)
+      (incanter.charts/stacked-bar-chart times quantities :group-by groupby 
+        :legend true :x-label "Time Period" :y-label "Quantity" :title title))))
+
 ;;Function to build sand chart from formatted demand file
 ;;Save will save the chat as a png with the filename filename-SandChart.png in the same directory as the original file
 ;;View will create a JFrame and set it as visible
+;;Cont will make the changes between time periods continous, otherwise the changes will be discrete
 ;;Returns JFreeChart object
-(defn demand-file->sand-charts [filename & {:keys [save view] :or {save false view true}}]
+(defn demand-file->sand-charts [filename & {:keys [save view cont] :or {save false view true cont true}}]
   (let [prefix (first (clojure.string/split (last (clojure.string/split filename #"[/|\\]")) #"[.]"))
-        chart (sand-charts (get-plot-data (read-formatted-demand filename)) :title (str prefix "-SandChart"))]
+        chart (build-chart (get-plot-data (read-formatted-demand filename)) :cont cont :title (str prefix "- Sand Chart"))]
     (when save
       (incanter.core/save chart (str  filename "-SandChart.png")))
     (when view

@@ -140,6 +140,6 @@
 ;;; =============== FUNCTIONS SPECIFIC FOR DEMAND FILE SAND CHARTS ================
 ;;Function for Sand Charts from formatted demand file
 (defn demand-file->sand-charts [filename & {:keys [save view cont] :or {save false view true cont true}}]
-  (file->sand-charts filename "Vignette" #(read-num (:StartDay %)) #(+ (read-num (:StartDay %)) (read-num (:Duration %))) #(read-num (:People %)))) 
+  (file->sand-charts filename "Vignette" #(read-num (:StartDay %)) #(+ (read-num (:StartDay %)) (read-num (:Duration %))) #(read-num (:People %)) :save true)) 
 ;;; ===============================================================================
 

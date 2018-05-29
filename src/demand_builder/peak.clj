@@ -23,18 +23,21 @@
     (doseq [i (range 1 (dec (count srcs)))
             :let [peak (if (<= i (count map-list)) (c/read-num (:peak (nth map-list (dec i)))) 0)
                   pre (if (> 0 (dec i)) (nth srcs i) (nth srcs (dec i)))
-                  post (if (<= (count srcs) (inc i)) (nth srcs i) (nth srcs (inc i)))]]
+                  post (if (<= (count srcs) (inc i)) (nth srcs i) (nth srcs (inc i)))
+                  m (nth map-list (dec i))
+                  demand (apply + [(c/read-num (:AC m)) (c/read-num (:RC m)) (c/read-num (:NG m))])
+                  color (if (< demand peak) (java.awt.Color. 205 0 0) (java.awt.Color. 0 205 0))]] 
       (.addAnnotation (.getCategoryPlot chart)
-        (org.jfree.chart.annotations.CategoryLineAnnotation. pre peak post peak (java.awt.Color/black) (java.awt.BasicStroke. 1.75 2 2))))))
+        (org.jfree.chart.annotations.CategoryLineAnnotation. pre peak post peak color (java.awt.BasicStroke. 1.75 2 2))))))
 
 ;;Creates the stacked bar plot and adds the peak lines for each SRC
 ;;Returns the chart object
-(defn build-peak-chart [map-list]
+(defn build-peak-chart [map-list & {:keys [title]}]
   (let [chart (incanter.charts/stacked-bar-chart 
                 (flatten [["" "" ""] (map #(c/rep (:SRC %) 3) map-list) [" " " " " "]]) ;; categories
                 (flatten [[0 0 0] (for [m map-list] [(c/read-num (:AC m)) (c/read-num (:RC m)) (c/read-num (:NG m))]) [0 0 0]]) ;;supply (y-values)
                 :group-by (flatten (c/rep ["AC" "RC" "NG"] (+ 2 (count (set (map #(:SRC %) map-list)))))) ;;group-by
-                :legend true :x-label "SRC" :y-label "Number of units")
+                :legend true :x-label "SRC" :y-label "Number of units" :title title)
         font (java.awt.Font. "Tahoma" 0 10)
         srcs (map #(:SRC %) map-list)]
    (doseq [src srcs] (.setTickLabelFont (.getDomainAxis (.getCategoryPlot chart)) src font)) ;;Change font size of x-label
@@ -47,7 +50,7 @@
 ;; save keyword as true will save file in same directory as input file as filename-peaks.png
 ;; view keyword as true will display the plot
 (defn file->peak-chart [filename & {:keys [save view] :or {save false view false}}]
-  (let [chart (build-peak-chart (c/file->map-list filename)) 
+  (let [chart (build-peak-chart (c/file->map-list filename) :title (str "Peak Demands: " (last (clojure.string/split filename #"[\\|/]")))) 
         out (str (apply str (take (- (count filename) 4) filename)) "-peaks.png")]
     (when save (incanter.core/save chart out))
     (when view (incanter.core/view chart))

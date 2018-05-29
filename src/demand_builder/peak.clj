@@ -19,11 +19,11 @@
     (org.jfree.chart.annotations.CategoryLineAnnotation. category value category value (java.awt.Color/black) (java.awt.BasicStroke. 5 2 2))))
 
 (defn add-peaks [chart map-list]
-  (let [srcs (map #(:SRC %) map-list)]
-    (doseq [i (range (count srcs)) 
-            :let [pre (if (> 0 (dec i)) (nth srcs i) (nth srcs (dec i)))
-                  post (if (<= (count srcs) (inc i)) (nth srcs i) (nth srcs (inc i)))
-                  peak (c/read-num (:peak (nth map-list i)))]]
+  (let [srcs (flatten [[""] (map #(:SRC %) map-list) [" "]])]
+    (doseq [i (range 1 (dec (count srcs)))
+            :let [peak (if (<= i (count map-list)) (c/read-num (:peak (nth map-list (dec i)))) 0)
+                  pre (if (> 0 (dec i)) (nth srcs i) (nth srcs (dec i)))
+                  post (if (<= (count srcs) (inc i)) (nth srcs i) (nth srcs (inc i)))]]
       (.addAnnotation (.getCategoryPlot chart)
         (org.jfree.chart.annotations.CategoryLineAnnotation. pre peak post peak (java.awt.Color/black) (java.awt.BasicStroke. 1.75 2 2))))))
 
@@ -31,15 +31,15 @@
 ;;Returns the chart object
 (defn build-peak-chart [map-list]
   (let [chart (incanter.charts/stacked-bar-chart 
-                (flatten (map #(c/rep (:SRC %) 3) map-list)) ;; categories
-                (flatten (for [m map-list] [(c/read-num (:AC m)) (c/read-num (:RC m)) (c/read-num (:NG m))])) ;;supply (y-values)
-                :group-by (flatten (c/rep ["AC" "RC" "NG"] (count (set (map #(:SRC %) map-list))))) ;;group-by
+                (flatten [["" "" ""] (map #(c/rep (:SRC %) 3) map-list) [" " " " " "]]) ;; categories
+                (flatten [[0 0 0] (for [m map-list] [(c/read-num (:AC m)) (c/read-num (:RC m)) (c/read-num (:NG m))]) [0 0 0]]) ;;supply (y-values)
+                :group-by (flatten (c/rep ["AC" "RC" "NG"] (+ 2 (count (set (map #(:SRC %) map-list)))))) ;;group-by
                 :legend true :x-label "SRC" :y-label "Number of units")
         font (java.awt.Font. "Tahoma" 0 10)
         srcs (map #(:SRC %) map-list)]
    (doseq [src srcs] (.setTickLabelFont (.getDomainAxis (.getCategoryPlot chart)) src font)) ;;Change font size of x-label
    (.setMaximumCategoryLabelLines (.getDomainAxis (.getCategoryPlot chart)) 11);;can change for readability of category labels
-   (add-peaks chart map-list) ;;add peak demand line (dot) for each SRC
+   (add-peaks chart map-list) ;;add peak demand line for each SRC
    chart))
 
 ;;Creates peak-demand chart from file
@@ -49,9 +49,7 @@
 (defn file->peak-chart [filename & {:keys [save view] :or {save false view false}}]
   (let [chart (build-peak-chart (c/file->map-list filename)) 
         out (str (apply str (take (- (count filename) 4) filename)) "-peaks.png")]
-    (when save
-      (incanter.core/save chart out))
-    (when view 
-      (incanter.core/view chart))
+    (when save (incanter.core/save chart out))
+    (when view (incanter.core/view chart))
     chart))
 

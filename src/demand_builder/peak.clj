@@ -18,6 +18,15 @@
   (.addAnnotation (.getCategoryPlot chart)
     (org.jfree.chart.annotations.CategoryLineAnnotation. category value category value (java.awt.Color/black) (java.awt.BasicStroke. 5 2 2))))
 
+(defn add-peaks [chart map-list]
+  (let [srcs (map #(:SRC %) map-list)]
+    (doseq [i (range (count srcs)) 
+            :let [pre (if (> 0 (dec i)) (nth srcs i) (nth srcs (dec i)))
+                  post (if (<= (count srcs) (inc i)) (nth srcs i) (nth srcs (inc i)))
+                  peak (c/read-num (:peak (nth map-list i)))]]
+      (.addAnnotation (.getCategoryPlot chart)
+        (org.jfree.chart.annotations.CategoryLineAnnotation. pre peak post peak (java.awt.Color/black) (java.awt.BasicStroke. 1.75 2 2))))))
+
 ;;Creates the stacked bar plot and adds the peak lines for each SRC
 ;;Returns the chart object
 (defn build-peak-chart [map-list]
@@ -29,9 +38,9 @@
         font (java.awt.Font. "Tahoma" 0 10)
         srcs (map #(:SRC %) map-list)]
    (doseq [src srcs] (.setTickLabelFont (.getDomainAxis (.getCategoryPlot chart)) src font)) ;;Change font size of x-label
-   (.setMaximumCategoryLabelLines (.getDomainAxis (.getCategoryPlot chart)) 11) ;;can change for readability of category labels
-   (doseq [m map-list] (add-category-line chart (:SRC m) (c/read-num (:peak m)))) ;;add peak demand line (dot) for each SRC
-   chart)) 
+   (.setMaximumCategoryLabelLines (.getDomainAxis (.getCategoryPlot chart)) 11);;can change for readability of category labels
+   (add-peaks chart map-list) ;;add peak demand line (dot) for each SRC
+   chart))
 
 ;;Creates peak-demand chart from file
 ;;Returns the chart object

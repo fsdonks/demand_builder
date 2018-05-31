@@ -544,7 +544,7 @@
                  "Rotational" ;; Catagory
                  (:title_10 f) ;; Title_10
                  (:title f)]) ;; IO_Title 
-        sorted-lines (sort-by #(nth % 5) lines)
+        sorted-lines (sort-by #(read-string (nth % 5)) lines)
         newline (insert-new-duration (last sorted-lines) (- tf (read-string (nth (last sorted-lines) 5))) t0 fd)]
     (replace-last sorted-lines newline))) 
 

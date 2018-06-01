@@ -1,6 +1,7 @@
 (ns demand_builder.chart
-  (:require [incanter core charts]))
-
+  (:require [incanter core charts]
+            [spork.util [table :as t]])
+  (:import [org.jfree.data.xy DefaultTableXYDataset XYSeries]))
 ;;Name space for Stacked chart generation using temporal data
 ;;Genic functionality for re-usability
 
@@ -10,21 +11,26 @@
 
 ;;Function to parse strings with exta syntax and convert to int without throwing error
 (defn read-num [string]
-  (if string
-    (let [num (fn [string] (apply str (map #(re-matches #"[\d.]*" %) (map str string))))
-          n (clojure.string/split (num string) #"[.]")  t (take 2 n) b (drop 2 n)
-          d (read-string (str (first t) "." (second t) (apply str b)))]
-      (if (zero? (- d (int d))) (int d) d))
-    0))
+  (try
+    (if string
+      (let [num (fn [string] (if (= string (re-matches #"[\d.,\"]*" string))
+                               (apply str (map #(re-matches #"[\d.]*" %) (map str string)))
+                               string))
+            n (clojure.string/split (num string) #"[.]")  t (take 2 n) b (drop 2 n)
+            d (read-string (str (first t) "." (second t) (apply str b)))]
+        (if (zero? (- d (int d))) (int d) d))
+      0)
+    (catch Exception e string)))
+
 
 ;;Converts flat datafile into list of maps using keys from first line (header) of file
 (defn file->map-list [filename & {:keys [del] :or {del "\t"}}]
-  (with-open [r (clojure.java.io/reader filename)]
-    (let [firstline (clojure.string/split (first (line-seq r)) (re-pattern del))
-          header (zipmap (range (count firstline)) firstline)
-          lines (map #(clojure.string/split % (re-pattern del)) (line-seq r))
-          data (for [line lines] (zipmap (map keyword firstline) line))]
-      (into [] data))))
+ (with-open [r (clojure.java.io/reader filename)]
+   (let [firstline (clojure.string/split (first (line-seq r)) (re-pattern del))
+         header (zipmap (range (count firstline)) firstline)
+         lines (map #(clojure.string/split % (re-pattern del)) (line-seq r))
+         data (for [line lines] (zipmap (map keyword firstline) line))]
+     (into [] data))))
 
 ;;Groups data map-list by key (String)
 ;;Returns multi-demensional list of map-list
@@ -142,4 +148,33 @@
 (defn demand-file->sand-charts [filename & {:keys [save view cont] :or {save false view true cont true}}]
   (file->sand-charts filename "Vignette" #(read-num (:StartDay %)) #(+ (read-num (:StartDay %)) (read-num (:Duration %))) #(read-num (:People %)) :save true)) 
 ;;; ===============================================================================
+
+
+(defn distinct-times [map-list startfn endfn]
+  (sort 
+    (distinct 
+      (apply conj
+        (map startfn map-list)
+        (map endfn map-list)))))
+
+;;Returns map of xy-pairs with key as time and value as quantity (only includes distinct times)
+(defn xy-pairs [map-list yfn startfn endfn]
+  (let [dtimes (distinct-times map-list startfn endfn)]
+    (zipmap dtimes (map #(y-at-time map-list % yfn startfn endfn) dtimes))))
+
+
+(defn xyseries-list [grouped-map-list yfn startfn endfn] 
+  (for [k (map first grouped-map-list) :let [m (get grouped-map-list k)]]
+    (let [series (org.jfree.data.xy.XYSeries. k)]
+      (doseq [xy (xy-pairs m yfn startfn endfn)]
+        (.add series (first xy) (second xy)))
+      series)))
+
+(defn xydataset [grouped-map-list yfn startfn endfn]
+  (let [ds (org.jfree.data.xy.DefaultTableXYDataset.)]
+    (doseq [series (xyseries-list grouped-map-list yfn startfn endfn)]
+      (.addSeries ds series))
+    ds))
+
+
 

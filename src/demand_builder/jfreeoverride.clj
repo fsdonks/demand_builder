@@ -1,14 +1,15 @@
 (ns demand_builder.jfreeoverride
-  (:require [incanter core charts]
-            [demand_builder [chart :as c]])
+  (:require [incanter core charts])
   (:import [org.jfree.chart.annotations CategoryAnnotation CategoryLineAnnotation TextAnnotation]
            [org.jfree.chart.plot Plot]
-           [org.jfree.chart.axis CategoryAnchor]))
+           [org.jfree.chart.axis CategoryAnchor]
+           [org.jfree.data.xy DefaultTableXYDataset XYSeries]
+           [org.jfree.chart ChartFactory]))
 
 ;;Temporary name space for adding/changing functionality of Jfreecharts, will eventually integrate into another ns
 
 
-
+;; ========== FUNCTIONS FOR CHANGING CATEGORY LINE ANNOTATIONS ON BAR CHARTS ===============================================================
 ;;Need to find a way to change how CategoryLineAnnotations works.
 ;;When given a two categories, draws a line from the middle of the first category to the middle of the second.
 ;;Have to change this to accept a single category and draw the line from the the category start to the category end.
@@ -91,7 +92,6 @@
         (.setStroke g2 stroke)
         (.drawLine g2 x1 y1 x2 y1)))))        
 
-
 ;;Default JFree category line annotation behavior wrapper
 ;;Will add a black line at the point [category, value] on the chart 
 ;;Because category1 = category2, the line will be a single point, 
@@ -101,4 +101,128 @@
   (.addAnnotation (.getCategoryPlot chart)
     (org.jfree.chart.annotations.CategoryLineAnnotation. category value category value 
       (java.awt.Color/black) (java.awt.BasicStroke. 2 2 2 1 (float-array 3 1) 1))))
+;; =========================================================================================================================================
 
+
+;; ========== FUNCTIONS FOR STACKED AREA CHARTS =======================================================================================
+
+;;***map-list = list of maps using keys from first line (header) of file
+
+;;Groups data map-list by key (String)
+;;Returns multi-demensional list of map-list grouped by key, where key is the name of a column in original data (String)
+(defn group-by-key [map-list key]
+  (let [k (keyword key)]
+    (group-by k map-list)))
+
+;;Returns set of records that fall into the given time periods
+;;Map-list is a single instance of a map list (a single entry after calling group-by-key or an entry after file->map-list if ungrouped)
+;;   Example: map-list = ({:key "k1" :start 0 :duration 100 :otherdata "data"} {:key "k2" :start 25 :duration :50 :otherdata "more data")
+;; Start and end are the time period bondaries (record falls within period [start, end] inclusive)
+;; startkeyfn and endkeyfn are functions that can be called on a single data map 
+;;   and will return the field that represents the records start time/end time
+;;   Example: startkeyfn = #(read-num (:StartDay %))
+;;            endkeyfn = #(+ (read-num (:Duration %)) (read-num (:StartDay %)))
+;; *startkeyfn and endkeyfn are expected to return numerical values (not strings)
+(defn in-period [map-list start end startkeyfn endkeyfn]
+  (filter #(and (>= start (startkeyfn  %)) (<= end (endkeyfn %))) map-list))
+
+;;Returns the y value to be used for the record at x value (time) of time
+;;Map list is a single instance of a map list (ex: ({:key "k1" :start 0 :duration 100 :otherdata "data"} {:key "k2" :start 25 :duration :50 :otherdata "more data"))
+;;ykeyfn is a function that gets the y-value from a single record (map)
+;;   Example: #(* (read-num (:Quantity %)) (read-num (:People %)))
+(defn y-at-time [map-list time ykeyfn startkeyfn endkeyfn]
+  (reduce + (map ykeyfn (in-period map-list time (inc time) startkeyfn endkeyfn))))
+
+;;Calculates the local start time of the map-list
+;;startkeyfn is a function that returns the start time from the map *as a numerical value (not string)
+(defn local-start [map-list startkeyfn]
+  (reduce min (for [m map-list] (startkeyfn m))))
+
+;;Calculates the local end time of the map-list
+;;endkeyfn is a function that returns the end time from a map *as a numerical value (not string)
+;;   Example: endkeyfn = #(+ (read-num (:Duration %)) (read-num (:StartDay %)))
+(defn local-end [map-list endkeyfn]
+  (reduce max (for [m map-list] (endkeyfn m))))
+
+;;Calculates the global start time by finding the minimum of all local start times
+(defn global-start [grouped-map-list startkeyfn]
+  (reduce min
+    (for [k (keys grouped-map-list) :let [map-list (get grouped-map-list k)]]
+     (local-start map-list startkeyfn))))
+    
+;;Calculates the global start time by finding the minimum of all local start times
+(defn global-end [grouped-map-list endkeyfn]
+  (reduce max
+    (for [k (keys grouped-map-list) :let [map-list (get grouped-map-list k)]]
+      (local-end map-list endkeyfn))))
+
+;;Returns a sequence of time values that are distinct in the dataset
+(defn distinct-times [map-list startfn endfn]
+  (sort (distinct (apply conj (map startfn map-list) (map endfn map-list)))))
+
+;; *dose not use parrelel map (slower)
+(defn xy-pairs [map-list yfn startfn endfn]
+  (let [dtimes (distinct-times map-list startfn endfn)]
+    (zipmap dtimes (map #(y-at-time map-list % yfn startfn endfn) dtimes))))
+
+;;Returns map of xy-pairs with key as time and value as quantity (only includes distinct times)
+(defn xy-pairs [map-list yfn startfn endfn]
+  (let [dtimes (distinct-times map-list startfn endfn)]
+    (reduce conj (pmap #(identity {% (y-at-time map-list % yfn startfn endfn)}) dtimes))))
+
+
+;;Repeates y value from x1 to x2-1 for all xs in xypairs
+;; where both xypairs and expairs are maps with x as key and y as val (xpairs initiall empty map)
+(defn expand-xy-pairs [xypairs expairs]
+ (let [k (sort (keys xypairs)) a (first k) b (second k)]
+   (if (nil? b)
+     (conj xypairs expairs) ;;base case, combine xypairs and expairs
+     (expand-xy-pairs (dissoc xypairs a) ;;expand 
+       (conj expairs (zipmap 
+                       (range a b) 
+                       (repeat (- b a) (get xypairs a))))))))
+
+;;XY-pairs is a map with x value as key and y value as val
+(defn expand-all [xy-pairs globalstart globalend]
+  (let [s (get xy-pairs globalstart) 
+        e (get xy-pairs globalend)
+        xyp (apply concat 
+              (list [[globalstart (if (nil? s) 0 s)]] 
+                    (filter #(and (< globalstart (first %)) (> globalend (first %))) (sort xy-pairs))
+                    [[globalend (if (nil? e) 0 e)]]))]
+    (sort (expand-xy-pairs (zipmap (map first xyp) (map second xyp)) {}))))
+
+;;Returns an instance of DefaultTableXYDataset
+;; getAllowDuplicateXValues will also returns false, do not use if there will be x duplicated
+;;Used to create the internal structure of datastructures used in jfree chart
+;;XY series have a list of xy pairs and a key associated with the series
+(defn ->xyseries [grouped-map-list key yfn startfn endfn]
+  (let [pairs (expand-all 
+                (xy-pairs (get grouped-map-list key) yfn startfn endfn) 
+                (global-start grouped-map-list startfn) 
+                (global-end grouped-map-list endfn))
+        ;;DefaultTableXYDataset cannot accept Series which allow duplicate x values
+        ;;already made sure no duplicate xs by using hash-map with x as key
+        ;;always return false for getAllowDuplicateXValues method
+        series (proxy [org.jfree.data.xy.XYSeries] [key]
+                 (getAllowDuplicateXValues ([] false)))] 
+    (doseq [xy pairs]
+      (.add series (first xy) (second xy)))
+    series))
+
+;;Returns a DefaultTavleXYDataset which can be used to build a stackedXYChart
+(defn ->ds [map-list groupby-key yfn startfn endfn]
+  (let [grouped-map-list (group-by-key map-list groupby-key)
+        k (keyword groupby-key)
+        keys (set (map k map-list))
+        series (map #(->xyseries grouped-map-list % yfn startfn endfn) keys)
+        ds (org.jfree.data.xy.DefaultTableXYDataset.)]
+    (doseq [s series] (.addSeries ds s))
+    ds))   
+
+;;JFree chart wrapper for creating a stacked-xy-chart
+;;ds is a some instance of the TabelXYDataset interface
+(defn stacked-xy-chart [ds & {:keys [title x-label y-label] :or {title "" x-label "time" y-label "quantity"}}]
+  (org.jfree.chart.ChartFactory/createStackedXYAreaChart title x-label y-label ds))
+
+;; ====================================================================================================================================

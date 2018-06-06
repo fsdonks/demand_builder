@@ -61,19 +61,21 @@
                       :SRC (get line "SRC")
                       :Title (get line "Title")}))))
 
+
+(defn collapse [records & {:keys [formatted] :or [formatted nil]}]
+  (let [r (sort-by :StartDay records)]
+    (if (<= (count records) 1)
+      (conj formatted (first r))
+      (if (= (:Quantity (first r)) (:Quantity (second r)))
+        (collapse (conj (drop 2 r) (assoc (first r) :Duration (+ (:Duration (first r)) (:Duration (second r))))) :formatted formatted)
+        (collapse (drop 1 r) :formatted (conj formatted (first r)))))))
+
 ;;Takes a list of formatted records and reduces where possible.
 ;;A record is reduced if the Vignette, SRC, Operation/Phase, and Quantity are all equal. 
 ;;If a record is to be reduced, all values remain unchanged except for duration which is the sum of the two records.
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn reduce-records [records]
-  (let [by-phase (partition-by :Operation (sort-by #(identity [(:StartDay %) (:Quantity %)]) records))
-        collapse (fn [records & {:keys [formatted] :or [formatted nil]}]
-                   (let [r (sort-by :StartDay records)]
-                     (if (<= (count records) 1)
-                       (conj formatted (first r))
-                       (if (= (:Quantity (first r)) (:Quantity (second r)))
-                         (collapse (conj (drop 2 r) (assoc (first r) :Duration (+ (:Duration (first r)) (:Duration (second r))))) :formatted formatted)
-                         (collapse (drop 1 r) :formatted (conj formatted (first r)))))))]
+  (let [by-phase (partition-by :Operation (sort-by #(identity [(:StartDay %) (:Quantity %)]) records))]
     (flatten (map collapse by-phase))))
 
 ;;Returns a list of maps with the keys :DemandGroup, :Vignette, :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
@@ -121,8 +123,12 @@
 ;; ***The file name (FORGE_SE-XXXX) has to match what is in the Mapping file
 ;;Returns a list of maps will the data needed to build the demand record
 (defn join-by-map [mapfile vignettefile]
-  (let [map-data (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
-        vignette-data (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema))
+  (let [map-data (try
+                   (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
+                   (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e))))))
+        vignette-data (try
+                        (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema))
+                        (catch java.lang.AssertionError e (throw (Exception. (str "Error reading CONSOLIDATED file (" vignettefile ")\n" (.getMessage e))))))
         scenario? (fn [string] (= "SE" (apply str (take 2 string))))
         scenarios (filter scenario? (map :ForceCode map-data))
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
@@ -184,5 +190,6 @@
       (doseq [line (into [output-header] lines)]
         (doseq [val line]
           (spork.util.io/write! w (str val "\t")))
-        (spork.util.io/writeln! w "")))))
+        (spork.util.io/writeln! w "")))
+    (sort (flatten [mapfile vignettefile forgefiles]))))
 

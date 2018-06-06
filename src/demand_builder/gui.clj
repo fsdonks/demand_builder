@@ -6,12 +6,6 @@
            [java.awt.event ActionListener]))
 
 (def ^:dynamic *closeon* 2)
-(defn ->frame [& args] ;;Window for error message, first args is Title, second args is message
-  (let [f (JFrame.) p (JPanel.) ta (JTextArea.)]
-    (.setSize f 500 500) (.setDefaultCloseOperation f *closeon*)
-    (.setRows ta 100) (.setSize ta 475 475) (.setLineWrap ta true)
-    (.setTitle f (first args)) (.setText ta (second args))
-    (.add p ta) (.add f p) (.setVisible f true) f))
 
 (defn choose-file [& {:keys [title] :or {title ""}}]
   (let [f (javax.swing.JFrame.)
@@ -22,15 +16,7 @@
     (.setMultiSelectionEnabled c true)
     (let [x (.showOpenDialog c f)]
       (if  (zero? x)
-        (map #(.getPath ^File %) (.getSelectedFiles c))
-        (println "No file selected.")))))
-
-;;Add an action listener to button that calls function func when pressed
-(defn add-button-listener [button func]
-  (.addActionListener button
-    (proxy [ActionListener] []
-      (actionPreformed [evt]
-        (func)))))
+        (map #(.getPath ^File %) (.getSelectedFiles c))))))
 
 (defn main-gui []
   (let [frame (JFrame. "Demand Builder")
@@ -46,35 +32,46 @@
       (proxy [ActionListener] []
         (actionPerformed [evt]
           (let [root (str (first (choose-file :title "Select working directory")) "/")]
-            (.setText rootLabel (if (nil? root) (.getText rootLabel) root))))))
+            (.setText rootLabel (if (= "/" root) (.getText rootLabel) root))))))
     
     ;;Build Demand Button
     (.addActionListener buildButton
       (proxy [ActionListener] []
         (actionPerformed [evt]
           (let [root (.getText rootLabel)
-                filesUsed (when (not (nil? root))
-                            (f/root->demandfile root))]
-            (.setText filesList (str "<html>Demand File created using inputs:<br>" 
-                                  (apply str (map #(str (spork.util.io/fname %) "<br>") filesUsed))))
+                filesUsed (when (not= "No root directory set" root)
+                            (try
+                              (f/root->demandfile root)
+                              (catch Exception e 
+                                (do
+                                  (.setText filesList (str "<html>Could not build Demand File from inputs at root: " root "<br>" (.getMessage e) "<br></html>"))))))]
+            (if (not= nil filesUsed)
+              (do
+                (.setText filesList (str "<html>Demand File created using inputs:<br>" 
+                                      (apply str (map #(str (spork.util.io/fname %) "<br>") filesUsed))))))
             (.add panel filesList)
             (.setVisible frame false)
             (.setVisible frame true)))))
-    
+ 
     ;;Sand Chart Button
     (.addActionListener sandchartButton
       (proxy [ActionListener] []
         (actionPerformed [evt]
-          (c/demand-file->sand-charts (str (.getText rootLabel) (spork.util.io/fname (.getText rootLabel)) "_DEMAND.txt") :view true :save true))))
-    
+          (try
+            (c/demand-file->sand-charts (str (.getText rootLabel) (spork.util.io/fname (.getText rootLabel)) "_DEMAND.txt") :view true :save true)
+            (catch java.lang.AssertionError e ;;If no people/strength in demand file, ask for supply file to look up strength by src
+              (c/demand-file->sand-charts (str (.getText rootLabel) (spork.util.io/fname (.getText rootLabel)) "_DEMAND.txt")
+                :supplyfile (first (choose-file :title "Supply file to look up Strength per SRC")) :veiw true :save true))
+            (catch Exception e (.setText filesList (str "Could not create Sand Chart from inputs at root: " (.getText rootLabel))))))))
     (.add panel rootLabel)
     (.add panel selectButton)
     (.add panel buildButton)
     (.add panel sandchartButton)
     (.add frame panel)
-    (.setSize frame 500 500)
+    (.setSize frame 500 163)
     (.setDefaultCloseOperation frame *closeon*)
-    (.setVisible frame true)))
+    (.setVisible frame true)
+    frame))
 
 
 

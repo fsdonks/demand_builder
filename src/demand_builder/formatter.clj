@@ -183,7 +183,7 @@
         mapfile (first (filter #(.contains % "MAP_") files))
         vignettefile (first (filter #(.contains % "CONSOLIDATED_") files))
         forgefiles (filter #(.contains % "FORGE_") files)
-        outfile (str root (spork.util.io/fname root) "_NEW-DEMAND.txt")
+        outfile (str root (spork.util.io/fname root) "_DEMAND.txt")
         lines (sort-by #(identity [(nth % 11) (nth % 8) (nth % 5)]) (records->lines (join-by-map mapfile vignettefile)))
         output-header ["Type" "Enabled" "Priority" "Quantity" "DemandIndex" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle" "People"]]
     (with-open [w (clojure.java.io/writer outfile)]

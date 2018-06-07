@@ -63,16 +63,16 @@
 ;;; =============== FUNCTIONS SPECIFIC FOR DEMAND FILE SAND CHARTS ================
 ;;Function for Sand Charts from formatted demand file
 ;;If demand file does not contain strength (people) per src, a supply file can be supplied to pull the data from
-(defn demand-file->sand-charts [demandfile & {:keys [save view cont supplyfile] :or {save false view true cont true}}]
+(defn demand-file->sand-charts [demandfile & {:keys [save view cont supplyfile] :or {save true view false cont true}}]
   (let [startfn #(:StartDay %)
         endfn #(+ (:StartDay %) (:Duration %))
-        fromDemand {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :People read-num}
+        fromDemand {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
         fromSupply {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}]
     (if (not= nil supplyfile)
       (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
             strmap (zipmap (map first supply) (map second supply))]
-        (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %)))) :schema fromSupply :save true))
-      (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (:People %))) :schema fromDemand :save true))))
+        (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %)))) :schema fromSupply :view view :save save))
+      (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (:Strength %))) :schema fromDemand :view view :save save))))
 ;;; ===============================================================================
 
 

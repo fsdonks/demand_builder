@@ -47,8 +47,8 @@
                                   (.setText filesList (str "<html>Could not build Demand File from inputs at root: " root "<br>" (.getMessage e) "<br></html>"))))))]
             (if (not= nil filesUsed)
               (.setText filesList (str "<html>Demand File created using inputs:<br>" 
-                                    (apply str (map #(str (spork.util.io/fname %) "<br>") filesUsed))))
-              (.setText filesList (str "<html>Could not build Demand File from inputs at root: " root"</html>")))))))
+                                    (apply str (map #(str (spork.util.io/fname %) "<br>") filesUsed)))))))))
+    ;(.setText filesList (str "<html>Could not build Demand File from inputs at root: " root"</html>")))))))
     
     ;;Sand Chart Button
     (.addActionListener sandchartButton

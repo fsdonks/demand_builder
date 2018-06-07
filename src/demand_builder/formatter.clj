@@ -52,7 +52,7 @@
         get-phase (fn [phases time]
                       (last (filter identity (for [p (sort-by #(second %) phases)] (if (<= (second p) time) (first p))))))
         last-phase (last (sort phases))]
-    (filter #(not= 0 (:Quantity %))
+    (filter #(not (zero? (:Quantity %)))
       (for [t times] {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
                       :StartDay t 
                       :Duration periodlength
@@ -75,7 +75,7 @@
 ;;If a record is to be reduced, all values remain unchanged except for duration which is the sum of the two records.
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn reduce-records [records]
-  (let [by-phase (partition-by :Operation (sort-by #(identity [(:StartDay %) (:Quantity %)]) records))]
+  (let [by-phase (partition-by :Operation (sort-by #(vector (:StartDay %) (:Quantity %)) records))]
     (flatten (map collapse by-phase))))
 
 ;;Returns a list of maps with the keys :DemandGroup, :Vignette, :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
@@ -90,21 +90,23 @@
     (for [m (flatten (map #(reduce-records (->record % (:phases input))) (:data input)))]
       (-> (assoc m :DemandGroup vignette) (assoc :Vignette vignette)))))
 
+;;Removes classification identifier [ (U) or (S) ] from infront of force code label [(U) SE-99] -> [SE-99]
+(def classiflabel #"\([A-Za-z]\) ")
+(defn get-fc [string] (clojure.string/replace string classiflabel ""))
+
 ;;Expected header for the Vigentte Consolidated file (in any order)
 ;;ForceCode can contain classification identifier (U) or (S)
 ;; ***Required columns -- :ForceCode, :SRC, :Title, :Strength, :Quantity, :Titlte10_32
 ;; **Can contain additional columns which will be ignored.
 ;; **Header must match exactly (assert error will be thrown) 
-(def vignette-schema {:ForceCode (fn [fc] (clojure.string/replace fc #"\([A-Za-z]\) " ""))
-                      :SRC :text :Title :text :Strength :number :Quantity :number :Title10_32 :text})
+(def vignette-schema {:ForceCode get-fc :SRC :text :Title :text :Strength :number :Quantity :number :Title10_32 :text})
 
 ;;Expected header for the Mapping file (in any order)
 ;;ForceCode can contain classification identifier (U) or (S), which will be removed
 ;; ***Required columns -- :ForceCode, :StartDay, :Duration 
 ;; **Can contain additional colulmns which will just be ignored 
 ;; ****ForceCodes must match EXACTLY to what is listed in the Vignette Consolidated file and FORGE filenames
-(def mapping-schema {:ForceCode (fn [fc] (clojure.string/replace fc #"\([A-Za-z]\) " ""))
-                     :StartDay :number :Duration :number})
+(def mapping-schema {:ForceCode get-fc :StartDay :number :Duration :number})
 
 ;;Takes a list of maps (of FORGE data), the last phase for the FORGE scenario, and the final day for the scenario from the map (Start + Duration from map)
 ;;For the last period of each record, if the phase matches last phase, will change the duration to match the ending time specified by the map
@@ -129,7 +131,7 @@
         vignette-data (try
                         (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema))
                         (catch java.lang.AssertionError e (throw (Exception. (str "Error reading CONSOLIDATED file (" vignettefile ")\n" (.getMessage e))))))
-        scenario? (fn [string] (= "SE" (apply str (take 2 string))))
+        scenario? (fn [string] (= "SE" (subs string 0 2))) ;;apply str, take n does not throw index out of bounds error if nil/length less than range (but should not be nil here ever)
         scenarios (filter scenario? (map :ForceCode map-data))
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
         filter-fc (fn [fc data] (filter #(= fc (:ForceCode %)) data))
@@ -140,36 +142,41 @@
         joined-forges (for [forge scenarios 
                             :let [mapend (scanario-mapend forge map-data)
                                   forgefile (forgepath forge)
-                                  forgedata (forgefile->records forgefile)
+                                  
+                                  forgedata (try
+                                              (forgefile->records forgefile)
+                                              (catch Exception e (throw (Exception. (str "File not found for FOREGE_" forge "\n" (.getMessage e))))))
+                                  
                                   phases (:phases (read-forge forgefile))
                                   offset (scenario-offset forge map-data)]]
                         (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (first (last (sort phases))) mapend))]
     (flatten (conj joined-forges joined-vignettes))))
 
-;;Takes a list of maps and expands to an ordered vector with the fields required for the demand file.
-;;Will automatically differentiate between Scenarios and Vignette where there is a difference in formatting
-;;Fields in Demand Records: Type, Enabled, Priority, Quantity, DemandIndex, StartDay, Duration, Overlap, 
-;;                          SRC, SourceFirst, DemandGroup, Vignette, Operation, Category, Title10_32, IOTitle, and Strength
-(defn records->lines [records]
-  (map #(identity
-          ["Demand" ;;Type - 0
-           "TRUE" ;;Enabled - 1
-           "1" ;;Priority - 2
-           (:Quantity %) ;;Quantity (of SRCs) - 3
-           "1" ;;DemandIndex - 4
-           (:StartDay %) ;;StartDay - 5
-           (:Duration %) ;;Duration - 6
-           "45" ;;Overlap - 7 
-           (:SRC %) ;;SRC - 8
-           "Uniform" ;;SourceFirst - 9
-           (if (nil? (:Vignette %)) (if (= "S-" (apply str (take 2 (:ForceCode %)))) (:ForceCode %) "Ungrouped") (:Vignette %)) ;;DemandGroup - 10
-           (if (nil? (:Vignette %)) (:ForceCode %) (:Vignette %)) ;;Vignette - 11
-           (if (nil? (:Operation %)) (:ForceCode %) (:Operation %)) ;;Operation - 12
-           "Rotational" ;;Category - 13
-           (if (nil? (:Title10_32 %)) "10" (:Title10_32 %)) ;;Title10_32 - 14
-           (:Title %) ;;IOTitle - 15
-           (:Strength %)]) ;;Strength - 16
-    records))
+;;Fields in Demand files
+(def demand-fields [:Type :Enabled :Priority :Quantity :DemandIndex :StartDay :Duration :Overlap
+                    :SRC :SourceFirst :DemandGroup :Vignette :Operation :Category :Title10_32 
+                    :OITitle :Strength])
+
+;;Formatt Vignettes and FORGE maps as Demand data maps
+(defn record->demand-record [{:keys [Quantity Duration StartDay SRC ForceCode Title
+                                     Strength Vignette Operation Title10_32]}]
+ {:Type     "Demand" ;;Type - 0  
+  :Enabled   true ;;Enabled - 1  
+  :Priority  1 ;;Priority - 2  
+  :Quantity  Quantity ;;Quantity (of SRCs) - 3  
+  :DemandIndex  1 ;;DemandIndex - 4  
+  :StartDay StartDay ;;StartDay - 5  
+  :Duration Duration ;;Duration - 6  
+  :Overlap  45 ;;Overlap - 7   
+  :SRC SRC     ;;SRC - 8 
+  :SourceFirst "Uniform" ;;SourceFirst - 9  
+  :DemandGroup  (or Vignette (if (= "S-" (subs ForceCode 0 2)) ForceCode "UnGrouped")) ;;DemandGroup - 10  
+  :Vignette  (or Vignette ForceCode) ;;Vignette - 11  
+  :Operation (or Operation ForceCode) ;;Operation - 12  
+  :Category  "Rotational" ;;Category - 13  
+  :Title10_32 (or Title10_32 "10") ;;Title10_32 - 14 
+  :OITitle Title ;;OITitle - 15  
+  :Strength Strength}) ;;Strength - 16  
 
 ;;From the root directory, finds the needed files, reads and formatts the data, then writes demand to an output file. 
 ;;***All needed files should be contained within the same directory
@@ -178,18 +185,16 @@
 ;;***Each FORGE file has the name root/FORGE_SE-XXXX (exactly matching FORCE CODE in MAP)
 ;; All files need to be text tab delimted (.txt) files, NOT EXCEL FILES
 ;; - The output file will be saved in the given root directory as root/[Subroot]-DEMAND.txt
-(defn root->demandfile [root]
-  (let [files (map #(.toString %) (spork.util.io/list-files root))
-        mapfile (first (filter #(.contains % "MAP_") files))
-        vignettefile (first (filter #(.contains % "CONSOLIDATED_") files))
-        forgefiles (filter #(.contains % "FORGE_") files)
-        outfile (str root (spork.util.io/fname root) "_DEMAND.txt")
-        lines (sort-by #(identity [(nth % 11) (nth % 8) (nth % 5)]) (records->lines (join-by-map mapfile vignettefile)))
-        output-header ["Type" "Enabled" "Priority" "Quantity" "DemandIndex" "StartDay" "Duration" "Overlap" "SRC" "SourceFirst" "DemandGroup" "Vignette" "Operation" "Category" "Title 10_32" "OITitle" "People"]]
-    (with-open [w (clojure.java.io/writer outfile)]
-      (doseq [line (into [output-header] lines)]
-        (doseq [val line]
-          (spork.util.io/write! w (str val "\t")))
-        (spork.util.io/writeln! w "")))
-    (sort (flatten [mapfile vignettefile forgefiles]))))
+(defn root->demandfile [root]  
+  (let [isFile? (fn [ftype fnames] (filter #(clojure.string/includes? % ftype) fnames))
+        files (map str (spork.util.io/list-files root))
+        mapfile      (first (isFile? "MAP_" files))
+        vignettefile (first (isFile? "CONSOLIDATED_" files))
+        forgefiles   (isFile? "FORGE_" files)
+        outfile      (str root (spork.util.io/fname root) "_DEMAND.txt")]
+    (-> (->> (join-by-map mapfile vignettefile)
+             (map record->demand-record)
+             (sort-by (juxt :Vignette :SRC :StartDay)))     
+        (spork.util.stream/records->file outfile :field-order demand-fields))
+    (flatten (vector mapfile vignettefile forgefiles))))
 

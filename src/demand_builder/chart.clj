@@ -50,29 +50,39 @@
 ;;Cont will make the changes between time periods continous, otherwise the changes will be discrete
 ;;Returns JFreeChart object
 (defn file->sand-charts [filename key startfn endfn yfn 
-                         & {:keys [save view title x-label y-label schema] 
-                            :or {save false view true title "Sand Chart" x-label "Time" y-label "Quantity" schema {}}}]
+                         & {:keys [save view title x-label y-label schema color-map ordering] 
+                            :or {save false view true title "Sand Chart" x-label "Time" y-label "Quantity" schema {} color-map nil ordering nil}}]
   (let [prefix (clojure.string/replace (spork.util.io/fname filename) (str "." (spork.util.io/fext filename)) "")
         outfile (clojure.string/replace filename (str "." (spork.util.io/fext filename)) "-SandChart.png")
         chart (file->stacked-xy-chart filename key startfn endfn yfn 
                 :save save :view view :title (str prefix " - Sand Chart") :x-label x-label :y-label y-label :schema schema)] 
     (when save (incanter.core/save chart outfile))
     (when view (incanter.core/view chart))
-    chart))
+    (jf/set-xysand-colors (if ordering (jf/sort-series chart ordering)) color-map)))
 
 ;;; =============== FUNCTIONS SPECIFIC FOR DEMAND FILE SAND CHARTS ================
+
+;;Example Colors for charts 
+(def colors {"HLD" (java.awt.Color/blue)
+             "FA/CT" (java.awt.Color/red)
+             "Det" (java.awt.Color/green)})
+
 ;;Function for Sand Charts from formatted demand file
 ;;If demand file does not contain strength (people) per src, a supply file can be supplied to pull the data from
-(defn demand-file->sand-charts [demandfile & {:keys [save view cont supplyfile] :or {save true view false cont true}}]
+(defn demand-file->sand-charts [demandfile & {:keys [save view cont supplyfile color-map ordering] :or {save true view false cont true color-map nil ordering nil}}]
   (let [startfn #(:StartDay %)
         endfn #(+ (:StartDay %) (:Duration %))
         fromDemand {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
-        fromSupply {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}]
-    (if (not= nil supplyfile)
-      (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
-            strmap (zipmap (map first supply) (map second supply))]
-        (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %)))) :schema fromSupply :view view :save save))
-      (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (:Strength %))) :schema fromDemand :view view :save save))))
+        fromSupply {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
+        chart (if (not= nil supplyfile)
+                (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
+                      strmap (zipmap (map first supply) (map second supply))]
+                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %))))
+                    :ordering ordering :color-map color-map :schema fromSupply :view view :save save))
+                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (:Strength %))) 
+                  :ordering ordering :color-map color-map :schema fromDemand :view view :save save))]
+    chart))
 ;;; ===============================================================================
 
-
+;;Example usage using color and order formatting
+;;(demand_builder.chart/demand-file->sand-charts f :view true :color-map {"SE-99" (java.awt.Color/red) "S-706" (java.awt.Color/blue) "S-7337" (java.awt.Color/green)} :ordering ["SE-99" "S-7337" "S-706"])

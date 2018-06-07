@@ -101,6 +101,9 @@
   (.addAnnotation (.getCategoryPlot chart)
     (org.jfree.chart.annotations.CategoryLineAnnotation. category value category value 
       (java.awt.Color/black) (java.awt.BasicStroke. 2 2 2 1 (float-array 3 1) 1))))
+
+(defn rep [val n]
+  (map #(if (or true %) val) (range n)))
 ;; =========================================================================================================================================
 
 
@@ -225,4 +228,41 @@
 (defn stacked-xy-chart [ds & {:keys [title x-label y-label] :or {title "" x-label "time" y-label "quantity"}}]
   (org.jfree.chart.ChartFactory/createStackedXYAreaChart title x-label y-label ds))
 
-;; ====================================================================================================================================
+;;Sets the colors of a Stack-XY-Sand chart according to map
+;;Chart is a Jfreechart obj containing some XYPlots
+;;color-map is a map with the series key as the key and a java color obj as the value
+(defn set-xysand-colors [chart color-map]
+  (let [plot (.getXYPlot chart)]
+    (doseq [n (range (.getDatasetCount plot))]
+      (let [dataset (.getDataset plot n)
+            rend (.getRendererForDataset plot dataset)]
+        ;(println "SERIES COUNT: "(.getSeriesCount dataset))
+        (doseq [i (range (.getSeriesCount dataset))]
+          ;(println (.getSeriesKey dataset i))
+          (.setSeriesPaint rend i (get color-map (.getSeriesKey dataset i)))))))
+  chart)
+
+;;Given a Jfree table dataset, returns the series object given the series key
+(defn get-series-by-key [dataset key]
+  (.getSeries dataset 
+    (first (filter #(= key (.getSeriesKey dataset %)) (range (.getSeriesCount dataset))))))
+
+;;Returns a map with series key as key and series Jfreeobject as value 
+(defn series-map [dataset]
+  (let [pairs (map #(vector (.getSeriesKey dataset %) (.getSeries dataset %)) (range (.getSeriesCount dataset)))]
+    (zipmap (map first pairs) (map second pairs))))
+
+;;Orders the sand charts according to ordering
+;;***The entire ordering has to be defined, if something is not in the ordering, it will not appear on the chart.
+(defn sort-series [chart ordering]
+  (let [plot (.getXYPlot chart)]
+    (doseq [n (range (.getDatasetCount plot))]
+      (let [dataset (.getDataset plot n)
+            smap (series-map dataset)]
+        (.removeAllSeries dataset)
+        (doseq [o ordering]
+          (.addSeries dataset (get smap o))))))
+  chart) 
+
+
+

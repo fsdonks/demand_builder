@@ -1,5 +1,6 @@
 (ns demand_builder.jfreeoverride
-  (:require [incanter core charts])
+  (:require [incanter core charts]
+            [proc stacked])
   (:import [org.jfree.chart.annotations CategoryAnnotation CategoryLineAnnotation TextAnnotation]
            [org.jfree.chart.plot Plot]
            [org.jfree.chart.axis CategoryAnchor]
@@ -102,8 +103,6 @@
     (org.jfree.chart.annotations.CategoryLineAnnotation. category value category value 
       (java.awt.Color/black) (java.awt.BasicStroke. 2 2 2 1 (float-array 3 1) 1))))
 
-(defn rep [val n]
-  (map #(if (or true %) val) (range n)))
 ;; =========================================================================================================================================
 
 
@@ -163,16 +162,10 @@
 (defn distinct-times [map-list startfn endfn]
   (sort (distinct (apply conj (map startfn map-list) (map endfn map-list)))))
 
-;; *dose not use parrelel map (slower)
-(defn xy-pairs [map-list yfn startfn endfn]
-  (let [dtimes (distinct-times map-list startfn endfn)]
-    (zipmap dtimes (map #(y-at-time map-list % yfn startfn endfn) dtimes))))
-
 ;;Returns map of xy-pairs with key as time and value as quantity (only includes distinct times)
 (defn xy-pairs [map-list yfn startfn endfn]
   (let [dtimes (distinct-times map-list startfn endfn)]
     (reduce conj (pmap #(identity {% (y-at-time map-list % yfn startfn endfn)}) dtimes))))
-
 
 ;;Repeates y value from x1 to x2-1 for all xs in xypairs
 ;; where both xypairs and expairs are maps with x as key and y as val (xpairs initiall empty map)
@@ -230,16 +223,9 @@
 
 ;;Sets the colors of a Stack-XY-Sand chart according to map
 ;;Chart is a Jfreechart obj containing some XYPlots
-;;color-map is a map with the series key as the key and a java color obj as the value
+;;color-map is a map with the series key as the key and a color keyword (:red, :blue, ect. -- see proc.stacked for all colors) as the value
 (defn set-xysand-colors [chart color-map]
-  (let [plot (.getXYPlot chart)]
-    (doseq [n (range (.getDatasetCount plot))]
-      (let [dataset (.getDataset plot n)
-            rend (.getRendererForDataset plot dataset)]
-        ;(println "SERIES COUNT: "(.getSeriesCount dataset))
-        (doseq [i (range (.getSeriesCount dataset))]
-          ;(println (.getSeriesKey dataset i))
-          (.setSeriesPaint rend i (get color-map (.getSeriesKey dataset i)))))))
+  (proc.stacked/set-colors chart color-map)
   chart)
 
 ;;Given a Jfree table dataset, returns the series object given the series key
@@ -252,7 +238,7 @@
   (let [pairs (map #(vector (.getSeriesKey dataset %) (.getSeries dataset %)) (range (.getSeriesCount dataset)))]
     (zipmap (map first pairs) (map second pairs))))
 
-;;Orders the sand charts according to ordering
+;;Orders the sand charts according to ordering (sequence of series keys where the nth element will appear nth on the chart)
 ;;***The entire ordering has to be defined, if something is not in the ordering, it will not appear on the chart.
 (defn sort-series [chart ordering]
   (let [plot (.getXYPlot chart)]
@@ -263,6 +249,5 @@
         (doseq [o ordering]
           (.addSeries dataset (get smap o))))))
   chart) 
-
 
 

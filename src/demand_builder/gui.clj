@@ -1,8 +1,8 @@
 (ns demand_builder.gui
-  (:require [demand_builder [chart :as c] [formatter :as f]]
+  (:require [demand_builder [chart :as c] [formatter :as f] [extend :as ex]]
             [spork.util.io])
   (:import [java.io File FileNotFoundException]
-           [javax.swing BoxLayout JFrame JFileChooser JTextArea JPanel JLabel JButton JOptionPane]
+           [javax.swing BoxLayout JFrame JFileChooser JTextArea JPanel JLabel JButton JOptionPane JTextField]
            [java.awt.event ActionListener]))
 
 (def ^:dynamic *closeon* 2)
@@ -18,6 +18,49 @@
       (if  (zero? x)
         (map #(.getPath ^File %) (.getSelectedFiles c))))))
 
+;;This gui will allow users to enter values to shift the start/duration of demand groups in a demand file
+(defn extender-gui [filename]
+  (let [frame (JFrame. "Extender")
+        mainpanel (JPanel.) grouppanel (JPanel.) startpanel (JPanel.) startdelta (JPanel.) durationpanel (JPanel.) durationdelta (JPanel.)
+        shiftButton (JButton. "SHIFT")
+        panels [grouppanel startpanel startdelta durationpanel durationdelta]
+        times (ex/get-times filename "DemandGroup")
+        objs (into []
+               (for [i times :let [group (JLabel. (str (first i)))
+                                   start (JLabel. (str (second i)))
+                                   duration (JLabel. (str (last i)))
+                                   sd (JTextField.) 
+                                   dd (JTextField.)]]
+                (do
+                  (.setColumns sd 7)
+                  (.setColumns dd 7)
+                  (.add grouppanel group)
+                  (.add startpanel start)
+                  (.add durationpanel duration)
+                  (.add startdelta sd)
+                  (.add durationdelta dd)
+                  {:group group :start start :duration duration :sd sd :dd dd})))]
+ 
+    (.addActionListener shiftButton
+      (proxy [ActionListener] []
+        (actionPerformed [evt]
+          (let [shifts (flatten (into []
+                                  (for [o objs]
+                                    [{:valkey :StartDay :groupkey :DemandGroup :key (.getText (:group o)) 
+                                      :delta (if (not= "" (.getText (:sd o))) (c/read-num (.getText (:sd o))) 0)}
+                                     {:valkey :Duration :groupkey :DemandGroup :key (.getText (:group o)) 
+                                      :delta (if (not= "" (.getText (:dd o))) (c/read-num (.getText (:dd o))) 0)}])))]
+            (ex/updates->file filename filename shifts)
+            (.setVisible frame false)))))
+    (doseq [p panels]
+      (.setLayout p (BoxLayout. p BoxLayout/Y_AXIS))
+      (.add mainpanel p)) 
+    (.add mainpanel shiftButton)
+    (.add frame mainpanel)
+    (.setSize frame 300 150)
+    (.setVisible frame true)
+    objs))
+
 (defn main-gui []
   (let [frame (JFrame. "Demand Builder")
         panel (JPanel.)
@@ -25,7 +68,8 @@
         selectButton (JButton. "Set Working Directory")
         buildButton (JButton. "Build Demand File")
         filesList (JLabel. "<html>No files selected<br></html>")
-        sandchartButton (JButton. "Sand Chart")]
+        sandchartButton (JButton. "Sand Chart")
+        shiftButton (JButton. "Shift Times")]
 
     ;;Select working directory button listener
     (.addActionListener selectButton
@@ -33,6 +77,13 @@
         (actionPerformed [evt]
           (let [root (str (first (choose-file :title "Select working directory")) "/")]
             (.setText rootLabel (if (= "/" root) (.getText rootLabel) root))))))
+    
+    ;;Shift Button
+    (.addActionListener shiftButton
+      (proxy [ActionListener] []
+        (actionPerformed [evt]
+          (let [root (str (.getText rootLabel) (spork.util.io/fname (.getText rootLabel)) "_DEMAND.txt")]
+            (extender-gui root)))))
     
     ;;Build Demand Button
     (.addActionListener buildButton
@@ -65,6 +116,7 @@
     (.add panel buildButton)
     (.add panel filesList)
     (.add panel sandchartButton)
+    (.add panel shiftButton)
     ;(.setBackground panel (java.awt.Color/blue))
     (.setLayout panel (javax.swing.BoxLayout. panel javax.swing.BoxLayout/Y_AXIS))
     (.add frame panel)
@@ -72,5 +124,7 @@
     (.setDefaultCloseOperation frame *closeon*)
     (.setVisible frame true)
     frame))
+
+
 
 (defn rf [] (require 'demand_builder.gui :reload))

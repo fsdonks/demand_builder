@@ -63,7 +63,7 @@
 ;;; =============== FUNCTIONS SPECIFIC FOR DEMAND FILE SAND CHARTS ================
 
 ;;Example Colors for charts 
-;;(def colors {"HLD" :blue "FA/CT" :red "Det" :green})
+(def colors {"HLD" :blue "FA/CT" :red "Det" :green})
 
 ;;Function for Sand Charts from formatted demand file
 ;;If demand file does not contain strength (people) per src, a supply file can be supplied to pull the data from

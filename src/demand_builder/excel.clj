@@ -59,7 +59,10 @@
 ;(defn row->vec [r]  
 ;  (vec (map read-cell (into-seq r))))
 
-
+;;Reads cell and removes special charector whitespaces (within a cell)
+;;Will remove \n and from inside a cell (requires alt+enter in excel to insert)
+(defn read-cell-nnl [c]
+  (clojure.string/replace (read-cell c) "\n" ""))
 
 
 (defn row->seq
@@ -69,7 +72,7 @@
 
 (defn row->indexed-cells [^Row r] 
   (map (fn [^Cell c] 
-         (vector (.getColumnIndex c) (read-cell c))) 
+         (vector (.getColumnIndex c) (read-cell-nnl c))) 
        (iterator-seq (.iterator r))))
 
 
@@ -98,8 +101,8 @@
                                          (take (- i idx)
                                                (repeat nil)))]
                      (recur (conj missed y) (inc i) (rest xs)))))))
-  ([r bound] (row->vec r bound read-cell))
-  ([r] (row->vec r nil read-cell)))
+  ([r bound] (row->vec r bound read-cell-nnl))
+  ([r] (row->vec r nil read-cell-nnl)))
 
 
 (comment
@@ -208,7 +211,7 @@
         fieldcount (count fields)
         pooled     (s/->string-pool 100 1000)
         read-cell-pooled (fn [cl]
-                           (let [res (read-cell cl)]
+                           (let [res (read-cell-nnl cl)]
                              (if (string? res) (pooled res) res)))]
     (->> (contiguous-rows sheet) 
          (map (fn [r]

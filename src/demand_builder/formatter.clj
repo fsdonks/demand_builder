@@ -62,7 +62,7 @@
                       :Title (get line "Title")}))))
 
 
-(defn collapse [records & {:keys [formatted] :or [formatted nil]}]
+(defn collapse [records & {:keys [formatted]}]
   (let [r (sort-by :StartDay records)]
     (if (<= (count records) 1)
       (conj formatted (first r))

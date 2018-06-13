@@ -3,8 +3,8 @@
             [spork.util [io :as io]]
             [spork.util [table :as tbl]]
             [clojure.java [io :as jio]]
-            [demand_builder excel]
-            [demand_builder formatter]))
+            ;[demand_builder excel]
+            [demand_builder.formatter :as formatter]))
 
 ;;Reads input file.
 ;;Input files should have the fields Path, Type, ForceCode, and Sheetname
@@ -26,8 +26,13 @@
 
 ;;Forges have weird format and need to be parsed differently
 (defn forgexlsx->tsv [forgefile dir input-map]
-  (demand_builder.excel/xlsx->tabdelimited forgefile :rootdir dir :sheetnames ["SRC_By_Day"] :i 1)
-  (rename-file (str dir "SRC_By_Day.txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt")))
+  (ex/xlsx->tabdelimited forgefile :rootdir dir
+     :sheetnames ["SRC_By_Day"]
+     :options {"SRC_By_Day" {:skip 1
+                             :read-cell :strip-newlines}})
+  (rename-file (str dir "SRC_By_Day.txt")
+     (str dir "FORGE_"
+          (forge-filename->fc forgefile input-map) ".txt")))
 
 ;;Returns filepath of MAP file (only takes first one if multiple)
 (defn find-map-file [input-map]
@@ -55,4 +60,4 @@
 (defn inputfile->demand [input-file]
   (let [_ (setup-directory input-file)
         root (io/as-directory (str (clojure.string/replace input-file (io/fname input-file) "") "Outputs"))]
-    (demand_builder.formatter/root->demandfile root)))
+    (formatter/root->demandfile root)))

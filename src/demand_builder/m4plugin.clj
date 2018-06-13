@@ -3,7 +3,6 @@
             [spork.util [io :as io]]
             [spork.util [table :as tbl]]
             [clojure.java [io :as jio]]
-            ;[demand_builder excel]
             [demand_builder.formatter :as formatter]))
 
 ;;Reads input file.
@@ -24,15 +23,10 @@
 (defn forge-filename->fc [forgefile input-map]
   (:ForceCode (first (filter #(= forgefile (:Path %)) input-map))))
 
-;;Forges have weird format and need to be parsed differently
+;;Now using normal tabular input instead of weird SRC_By_Day formatting
 (defn forgexlsx->tsv [forgefile dir input-map]
-  (ex/xlsx->tabdelimited forgefile :rootdir dir
-     :sheetnames ["SRC_By_Day"]
-     :options {"SRC_By_Day" {:skip 1
-                             :read-cell :strip-newlines}})
-  (rename-file (str dir "SRC_By_Day.txt")
-     (str dir "FORGE_"
-          (forge-filename->fc forgefile input-map) ".txt")))
+  (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames ["Unit_Node_Detail"])
+  (rename-file (str dir "Unit_Node_Detail.txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt")))
 
 ;;Returns filepath of MAP file (only takes first one if multiple)
 (defn find-map-file [input-map]

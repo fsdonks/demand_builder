@@ -1,0 +1,7 @@
+Want to check that if a Forge demand ends before the last day of the file, it isn't extended.
+Before, this demand was getting extended, but it looks like Mike fixed that problem so
+I'm double-checking that.
+
+current issues:
+01205-final duration should be 8.  It's 9.
+98205-final duration should be 8.  It's 2920.

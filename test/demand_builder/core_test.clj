@@ -64,17 +64,22 @@
    (add-path "TestCase3")
    (add-path "ManySRCs-1DemandGroup")
    (add-path "complexest")
+   (add-path "inactive_extension")
    ;;temporarily removed since wunderkind forgot to add directory hah!
    #_(add-path "ungrouped")])
 
 (deftest demandbuilder
   (doseq [p test-paths
           :let [out (get-output p)
-                expected (get-expected p)]]
+                expected (get-expected p)
+                ;;expected files don't always contain Strength.
+                out (if (contains? (set (keys (first expected))) "Strength")
+                      out
+                      (map (fn [r] (dissoc r "Strength")) out))]]
     (println (str "Testing " p))
     (testing "Original output mispelled category, so let's make sure the fields match."
       (is (= (keys (dissoc (first out) "People")) (keys (first expected)))))
     (testing "If we compare sets, won't account for duplicates."
       (is (= (count out) (count expected))))
     (testing "Does the expected output match the output?"
-      (is (= (set (map (fn [r] (dissoc r "People")) out)) (set expected))))))
+      (is (= (set out) (set expected))))))

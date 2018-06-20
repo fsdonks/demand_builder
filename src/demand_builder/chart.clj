@@ -65,19 +65,39 @@
 ;;Example Colors for charts 
 (def colors {"HLD" :blue "FA/CT" :red "Det" :green})
 
+(defn first-row
+  "Returns the first row of a file."
+  [path]
+  (spork.util.general/first-any (spork.util.general/line-reducer path)))
+
+(defn header-exists?
+  "Returns true if the header exists in the file."
+  [path header & {:keys [sep] :or {sep #"\t"}}]
+  (-> (first-row path)
+      (clojure.string/split sep)
+      (set)
+      (contains? header)))
+
 ;;Function for Sand Charts from formatted demand file
-;;If demand file does not contain strength (people) per src, a supply file can be supplied to pull the data from
-(defn demand-file->sand-charts [demandfile & {:keys [save view cont supplyfile color-map ordering] :or {save true view false cont true color-map nil ordering nil}}]
+;;If demand file does not contain strength (people) per src, a supply file can be supplied to pull the data from.
+;;We can probably delete the fromSupply schema below.  Even in the first branch of if, :schema should likely be
+;;Fromdemand.
+
+(defn demand-file->sand-charts
+  ":ordering will also filter demandgroups. :color-map only works when :ordering is specified."
+  [demandfile & {:keys [save view cont supplyfile color-map ordering] :or {save true view false cont true ordering nil
+                                                                           color-map nil}}]
   (let [startfn #(:StartDay %)
         endfn #(+ (:StartDay %) (:Duration %))
-        fromDemand {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
+        dschema {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
+        fromDemand (if (header-exists? demandfile "Strength") dschema (dissoc dschema :Strength))
         fromSupply {:SRC :text :DemandGroup :text :Quantity read-num :StartDay read-num :Duration read-num :Strength read-num}
         chart (if (not= nil supplyfile)
                 (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
-                      strmap (zipmap (map first supply) (map second supply))]
-                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %))))
+                      strmap (into {} supply)]
+                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %) 1)))
                     :ordering ordering :color-map color-map :schema fromSupply :view view :save save))
-                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (:Strength %))) 
+                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get % :Strength 1))) 
                   :ordering ordering :color-map color-map :schema fromDemand :view view :save save))]
     chart))
 ;;; ===============================================================================

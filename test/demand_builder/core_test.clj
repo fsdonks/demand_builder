@@ -73,8 +73,8 @@
                 expected (get-expected p)]]
     (println (str "Testing " p))
     (testing "Original output mispelled category, so let's make sure the fields match."
-      (is (= (keys (first out)) (keys (first expected)))))
+      (is (= (keys (dissoc (first out) "People")) (keys (first expected)))))
     (testing "If we compare sets, won't account for duplicates."
       (is (= (count out) (count expected))))
     (testing "Does the expected output match the output?"
-      (is (= (set out) (set expected))))))
+      (is (= (set (map (fn [r] (dissoc r "People")) out)) (set expected))))))

@@ -154,12 +154,20 @@
      (zipmap (range 1 (inc (count r))) n) 0 1)))
 ;; example output {0 1, 1 9, 2 17, 3 25, .... }   
 
+(def day-regex #"Day \d+")
+
+(defn forge-days
+  "returns the sequence of day data from the forge data, fd."
+  [fd]
+  (take-while (fn [r] (re-find day-regex (reduce str r)))  (drop 2 fd)))
+
 ;; Given the phase header p, returns a map with phase-name, start, and end value for first phase in p
 (defn make-phase [p m fd]
   (let [n (next p)]
     {:phase-name (first p)
      :start (get m (first p))
-     :end (if n (get m (first n)) (apply max (map count fd)))}))
+     :end (if n (get m (first n))
+              (inc (count (forge-days fd))))}))
 
 ;; Repeately calls make phases until the whole phase header to mapped
 (defn make-phases [p m r fd] ;; r is the collection of returned values
@@ -575,21 +583,28 @@
   ;;only expand if it is the last period in the last phase and the map duration is greater than the forge duration
   (if expand
     (apply max (map #(+ (read-num (:start %)) (read-num (:duration %))) (:times (get vmap (:force-code f)))))
-    (+ (last (map #(read-num (:start %)) (:times (get vmap (:force-code f)))))
-       (apply max (map #(+ (:start %) (:duration %)) (:times f))))))
+    (dec (+ (last (map #(read-num (:start %)) (:times (get vmap (:force-code f)))))
+       (apply max (map #(+ (:start %) (:duration %)) (:times f)))))))
+
+(defn forge-end-day
+  "Given forge data (fd), returns the last day of the file."
+  [fd]
+  (-> (re-find day-regex (reduce str (last (forge-days fd))))
+      (clojure.string/split  #" ")
+      (second)
+      (bigdec)
+      (long)))
 
 ;; Converts forge data to list of formatted vectors
 (defn forge->lines [forges fd vmap]
-    (let 
-      [last-phase (last (sort-by #(:start %) (make-phases (phase-header fd) (phase-indx fd) [] fd)))
-       last-day-map (inc (* 8 (- (:end last-phase) (:start last-phase))))       
-       lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)]
-                             ;;filter out non-data rows
-                             (expand-forge f fd (read-num (get-offset f vmap)) 
-                               (if (> (last (map #(+ (:start %) (:duration %)) (:times f))) last-day-map)
-                                 (get-final-map-time f vmap true)
-                                 (get-final-map-time f vmap false)))))]  ;;t0 passed as argument to expand-forge 
-      lines))
+  (let [last-day (forge-end-day fd)
+        lines (apply concat (for [f (filter #(and (not= "SRC" (:src %)) (not= "" (:src %)) (not= nil (:src %))) forges)]
+                              ;;filter out non-data rows
+                              (expand-forge f fd (read-num (get-offset f vmap)) 
+                                            (if (> (last (map #(+ (:start %) (:duration %)) (:times f))) last-day)
+                                              (get-final-map-time f vmap true)
+                                              (get-final-map-time f vmap false)))))]  ;;t0 passed as argument to expand-forge 
+    lines))
                              
 
 ;; Uses vignette map to create list of demands from forge files

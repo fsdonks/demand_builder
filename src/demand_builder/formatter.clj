@@ -44,7 +44,7 @@
 
 ;;When duplicate vignettes, add quantites - only when multiple rows with the same SRC
 (defn reduce-cons [vignettes]
-  (let [by-srcs (map second (group-by :SRC vignettes))]
+  (let [by-srcs (map second (group-by #(vector (:SRC %) (:ForceCode %)) vignettes))]
     (for [v by-srcs :let [quantity (apply + (map :Quantity v)) 
                           _ (when (> (count v) 1) (do (println "\nDuplicate Records in Consolidated :\n") (doseq [val v] (println v))))
                           _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]

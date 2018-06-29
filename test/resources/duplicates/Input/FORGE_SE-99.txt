@@ -1,0 +1,11 @@
+						FwdStation	PH I			
+SRC	Title	Strength	Branc Code	Branch Label	Service	"Day 0001
+TP 1"	"Day 0009
+TP 2"	"Day 0017
+TP 3"	"Day 0025
+TP 4"	"Day 0033
+TP 5"
+01205K000	Ponies	381	1	Avn	Army		2	4	2	4
+01205K000	Ponies	381	1	Avn	Army			3	2	4
+										
+	Total Army Strength	"362,377"				1	2	3	4	5

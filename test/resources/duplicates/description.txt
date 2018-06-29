@@ -1,0 +1,6 @@
+Warn the user if one of the CONSOLIDATED demands has two or more records for one SRC and one force list code. This would have highlighted a mistake in the input data that we were given.
+In addition to warning the user, go ahead and combine the quantities to create a single demand record.
+
+Multiple records of a Forge file with the same SRC should have their quantities combined in order to create one demand record.
+
+Also tests to make sure the CONSOLIDATED demand with a quantity of 0 is filtered out.

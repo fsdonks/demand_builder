@@ -65,8 +65,8 @@
    (add-path "ManySRCs-1DemandGroup")
    (add-path "complexest")
    (add-path "inactive_extension")
-   ;;temporarily removed since wunderkind forgot to add directory hah!
-   #_(add-path "ungrouped")])
+   (add-path "intermittent")
+   (add-path "increments")])
 
 (deftest demandbuilder
   (doseq [p test-paths

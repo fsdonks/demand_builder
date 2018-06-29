@@ -1,3 +1,3 @@
 Since we can handle extensions to the Forge files, we need to be able to handle shortening as well. 
 If the map shortens a Forge demand, it should work as expected. I'm adding an early_map test to the test resources. 
-As you can see, the output looks janky. I'll make expected output when I have a chance.
+As you can see, the output looks janky.

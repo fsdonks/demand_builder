@@ -1,6 +1,6 @@
 (ns demand_builder.formatter
-    (:require [spork.util table parsing io]
-              [demand_builder [forgeformatter :as ff]]))
+  (:require [spork.util table parsing io]
+            [demand_builder [forgeformatter :as ff]]))
 
 ;;A name space to refactor demand_builder (core)
 
@@ -22,6 +22,9 @@
 ;; ****ForceCodes must match EXACTLY to what is listed in the Vignette Consolidated file and FORGE filenames
 (def mapping-schema {:ForceCode get-fc :StartDay :number :Duration :number})
 
+;;list of forge records that need to be adjusted to match the map
+(def shifted-forges (atom []))
+
 ;;Takes a list of maps (of FORGE data), the last phase for the FORGE scenario, and the final day for the scenario from the map (Start + Duration from map)
 ;;For the last period of each record, if the phase matches last phase, will change the duration to match the ending time specified by the map
 ;; **This can either increase or decrease the initial duration
@@ -29,9 +32,31 @@
 (defn sync-map [forgerecords lastphase mapend]
   (let [splitrecs (partition-by :SRC (filter #(= lastphase (:Operation %)) forgerecords))
         lastrecs (map #(last (sort-by :StartDay %)) splitrecs)
-        adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)]
+        adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)
+        _ (doseq [r (zipmap lastrecs adjusted)]
+            (when (not= (:Duration (first r)) (:Duration (second r)))
+              (swap! shifted-forges conj (first r))))] 
     (filter #(pos? (:Duration %))
       (flatten (conj adjusted (into [] (clojure.set/difference (set forgerecords) (set lastrecs))))))))
+
+;;list of duplicate records in either forge or consolidated files
+(def dup-recs (atom []))
+
+;;When duplicate vignettes, add quantites - only when multiple rows with the same SRC
+(defn reduce-cons [vignettes]
+  (let [by-srcs (map second (group-by :SRC vignettes))]
+    (for [v by-srcs :let [quantity (apply + (map :Quantity v)) 
+                          _ (when (> (count v) 1) (do (println "\nDuplicate Records in Consolidated :\n") (doseq [val v] (println v))))
+                          _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]
+      (assoc (first v) :Quantity quantity))))
+
+;;When duplicate forges, add quantites - only when same SRC and startDay
+(defn reduce-forge [forges]
+  (let [by-src-day (map second (group-by #(vector (:SRC %) (:StartDay %)) forges))]
+    (for [v by-src-day :let [quantity (apply + (map :Quantity v)) 
+                             _ (when (> (count v) 1) (do (println "\nDuplicate Records in Forge:\n") (doseq [val v] (println v))))
+                             _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]
+      (assoc (first v) :Quantity quantity))))
 
 ;;Reads the mapfile and joins the appropriated data from either the Vignette Consolidated file or FORGE file.
 ;;For each Vignette in the map, joins timing data from map with quantity information from vignette consolidated file
@@ -44,11 +69,16 @@
                    (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
                    (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e))))))
         vignette-data (try
-                        (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema))
+                        (reduce-cons (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema)))
                         (catch java.lang.AssertionError e (throw (Exception. (str "Error reading CONSOLIDATED file (" vignettefile ")\n" (.getMessage e))))))
         scenario? (fn [string] (= "SE" (subs string 0 2))) ;;apply str, take n does not throw index out of bounds error if nil/length less than range (but should not be nil here ever)
         scenarios (filter scenario? (map :ForceCode map-data))
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
+        map-only (clojure.set/difference (set vignettes) (set (map :ForceCode vignette-data)))
+        cons-only (clojure.set/difference (set (map :ForceCode vignette-data)) (set vignettes))
+        oos-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Out-of-scope-vignettes.txt"))
+        duplicates-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Duplicate-records.txt"))
+        adjusted-duration-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Adjusted-durations.txt"))
         filter-fc (fn [fc data] (filter #(= fc (:ForceCode %)) data))
         scenario-offset (fn [fc map-data] (:StartDay (first (filter-fc fc map-data))))
         scanario-mapend (fn [fc map-data] (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
@@ -57,14 +87,13 @@
         joined-forges (for [forge scenarios 
                             :let [mapend (scanario-mapend forge map-data)
                                   forgefile (forgepath forge)
-                                  
                                   forgedata (try
-                                              (ff/forge->records forgefile)
+                                              (reduce-forge (ff/forge->records forgefile))
                                               (catch Exception e (throw (Exception. (str "File not found for FOREGE_" forge "\n" (.getMessage e))))))
-                                  
-                                  ;phases (:phases (read-forge forgefile))
                                   offset (scenario-offset forge map-data)]]
-                        (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))]
+                        (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))
+        oos-string (flatten (vector "ForceCode\tReason\n" (map #(str % "\tNot in consolidated\n") map-only) (map #(str % "\tNot in map\n") cons-only)))]
+    (spit oos-file (reduce str oos-string))
     (flatten (conj joined-forges joined-vignettes))))
 
 ;;Fields in Demand files
@@ -93,6 +122,18 @@
   :OITitle Title ;;OITitle - 15  
   :Strength Strength}) ;;Strength - 16  
 
+(defn write-shifted-forges [outfile]
+  (println "Number of forges shifted: " (count @shifted-forges))
+  (doseq [d @shifted-forges]
+    (spit outfile (str d "\n") :append true))
+  (def shifted-forges (atom [])))
+
+(defn write-dup-recs [outfile]
+  (println "Number of duplicate records: " (count @dup-recs))
+  (doseq [d @dup-recs]
+    (spit outfile (str d "\n") :append true))
+  (def dup-recs (atom [])))
+
 ;;From the root directory, finds the needed files, reads and formatts the data, then writes demand to an output file. 
 ;;***All needed files should be contained within the same directory
 ;;***The map file has the name root/MAP_[filename]
@@ -106,8 +147,13 @@
         mapfile      (first (isFile? "MAP_" files))
         vignettefile (first (isFile? "CONSOLIDATED_" files))
         forgefiles   (isFile? "FORGE_" files)
-        outfile      (str root (spork.util.io/fname root) "_DEMAND.txt")]
-    (-> (->> (join-by-map mapfile vignettefile)
+        outfile      (str root (spork.util.io/fname root) "_DEMAND.txt")
+        duplicates-file (str root "Duplicate-records.txt")
+        adjusted-file (str root "Adjusted-records.txt")
+        data (join-by-map mapfile vignettefile)]
+    (write-shifted-forges adjusted-file)
+    (write-dup-recs duplicates-file)
+    (-> (->> (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %))) data)
              (map record->demand-record)
              (sort-by (juxt :Vignette :SRC :StartDay)))     
         (spork.util.stream/records->file outfile :field-order demand-fields))

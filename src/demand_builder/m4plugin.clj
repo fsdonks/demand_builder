@@ -39,6 +39,44 @@
     (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
     (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
 
+;;Reads the first line of a tab delimited text file
+(defn read-header [file]
+  (with-open [r (clojure.java.io/reader file)]
+    (clojure.string/split (first (line-seq r)) #"\t")))
+
+;;Map to replace header with expected field name
+(def header-map 
+  {"Event Code" "ForceCode"
+   "EventCode" "ForceCode"
+   "Force List Code (ID)" "ForceCode"
+   "Start" "StartDay"
+   "SRC" "SRC"
+   "SRC TITLE" "Title"
+   "SRC TITLE`" "Title"
+   "STR" "Strength"
+   "QTY" "Quantity"
+   "Title 10_32" "Title10_32"})
+  
+;;Uses header-map to replace the header with expected column names
+(defn resolve-header [header]
+  (for [h header :let [replacement (get header-map h)]]
+    (if replacement replacement h)))
+
+;;Will replace header of text file created from exel file with expected names for columns (using header map)
+;;To add an additional case where names may be different, just add the given column name to header-map with key of expected value
+(defn fix-header [file]
+  (let [header (read-header file)
+        fixed-header (resolve-header header)
+        newfile (str file "-temp")
+        new-header-line (str (apply str (map #(str % "\t") fixed-header)) "\n")]
+    (do
+      (spit newfile new-header-line)
+      (with-open [r (clojure.java.io/reader file)]
+        (let [lines (drop 1 (line-seq r))]
+          (doseq [line lines]
+            (spit newfile (str line "\n") :append true))))
+      (rename-file newfile file))))
+
 
 ;;Returns filepath of MAP file (only takes first one if multiple)
 (defn find-map-file [input-map]
@@ -59,6 +97,8 @@
         _ (doseq [f forges] (forgexlsx->tsv f (io/as-directory (str root outputdir)) in-map))
         new-map (str (io/as-directory (str root outputdir)) (:Sheetname vmap) ".txt")
         new-con (str (io/as-directory (str root outputdir)) (:Sheetname vcons) ".txt")]
+    (fix-header new-map)
+    (fix-header new-con)
     (rename-file new-map (clojure.string/replace new-map (io/fname new-map) (str "MAP_" (io/fname new-map))))
     (rename-file new-con (clojure.string/replace new-con (io/fname new-con) (str "CONSOLIDATED_" (io/fname new-con))))))
 
@@ -67,3 +107,4 @@
   (let [_ (setup-directory input-file)
         root (io/as-directory (str (clojure.string/replace input-file (io/fname input-file) "") outputdir))]
     (formatter/root->demandfile root)))
+

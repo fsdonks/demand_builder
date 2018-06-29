@@ -44,6 +44,9 @@
         chart (jf/stacked-xy-chart ds :title title :x-label x-label :y-label y-label)]
     chart))
 
+;;Example Colors for charts 
+(def colors {"HLD" :blue "FA/CT" :red "Det" :green})
+
 ;;Function to build sand chart from formatted demand file
 ;;Save will save the chat as a png with the filename filename-SandChart.png in the same directory as the original file
 ;;View will create a JFrame and set it as visible
@@ -51,7 +54,7 @@
 ;;Returns JFreeChart object
 (defn file->sand-charts [filename key startfn endfn yfn 
                          & {:keys [save view title x-label y-label schema color-map ordering] 
-                            :or {save false view true title "Sand Chart" x-label "Time" y-label "Quantity" schema {} color-map nil ordering nil}}]
+                            :or {save false view true title "Sand Chart" x-label "Time" y-label "Quantity" schema {} color-map colors ordering nil}}]
   (let [prefix (clojure.string/replace (spork.util.io/fname filename) (str "." (spork.util.io/fext filename)) "")
         outfile (clojure.string/replace filename (str "." (spork.util.io/fext filename)) "-SandChart.png")
         chart (file->stacked-xy-chart filename key startfn endfn yfn 
@@ -62,8 +65,7 @@
 
 ;;; =============== FUNCTIONS SPECIFIC FOR DEMAND FILE SAND CHARTS ================
 
-;;Example Colors for charts 
-(def colors {"HLD" :blue "FA/CT" :red "Det" :green})
+
 
 (defn first-row
   "Returns the first row of a file."

@@ -225,7 +225,8 @@
 ;;Chart is a Jfreechart obj containing some XYPlots
 ;;color-map is a map with the series key as the key and a color keyword (:red, :blue, ect. -- see proc.stacked for all colors) as the value
 (defn set-xysand-colors [chart color-map]
-  (proc.stacked/set-colors chart color-map)
+  (when color-map
+    (proc.stacked/set-colors chart color-map))
   chart)
 
 ;;Given a Jfree table dataset, returns the series object given the series key

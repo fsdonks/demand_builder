@@ -35,7 +35,8 @@
   (let [inpath (str path "/Input/")
         vignettes (find-file inpath vcons-file?)
         mapping (find-file inpath vmap-file?)]
-    (f/join-by-map mapping vignettes)))
+    (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %)))
+      (f/join-by-map mapping vignettes))))
 
 (defn get-expected
   "Given a path to a taa_test_data directory, get the expected results in

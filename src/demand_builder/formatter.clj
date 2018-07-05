@@ -30,8 +30,9 @@
 ;; **This can either increase or decrease the initial duration
 ;;Returns a list of maps (of FORGE data) that has been syncronized to end on the same day as what is listed in the map file.
 (defn sync-map [forgerecords lastphase mapend]
-  (let [splitrecs (partition-by :SRC (filter #(= lastphase (:Operation %)) forgerecords))
-        lastrecs (map #(last (sort-by :StartDay %)) splitrecs)
+  (let [lastday (apply max (map :StartDay forgerecords))
+        splitrecs (partition-by :SRC (filter #(= lastphase (:Operation %)) (sort-by :SRC forgerecords)))
+        lastrecs (filter #(= lastday (:StartDay %)) (map #(last (sort-by :StartDay %)) splitrecs))
         adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)
         _ (doseq [r (zipmap lastrecs adjusted)]
             (when (not= (:Duration (first r)) (:Duration (second r)))
@@ -104,8 +105,8 @@
 ;;Formatt Vignettes and FORGE maps as Demand data maps
 (defn record->demand-record [{:keys [Quantity Duration StartDay SRC ForceCode Title
                                      Strength Vignette Operation Title10_32]}]
- {:Type     "Demand" ;;Type - 0  
-  :Enabled   true ;;Enabled - 1  
+ {:Type     "DemandRecord" ;;Type - 0  
+  :Enabled   "TRUE" ;;Enabled - 1  
   :Priority  1 ;;Priority - 2  
   :Quantity  Quantity ;;Quantity (of SRCs) - 3  
   :DemandIndex  1 ;;DemandIndex - 4  
@@ -114,7 +115,7 @@
   :Overlap  45 ;;Overlap - 7   
   :SRC SRC     ;;SRC - 8 
   :SourceFirst "Uniform" ;;SourceFirst - 9  
-  :DemandGroup  (or Vignette (if (= "S-" (subs ForceCode 0 2)) ForceCode "UnGrouped")) ;;DemandGroup - 10  
+  :DemandGroup  (or Vignette (if (= "S-" (subs ForceCode 0 2)) ForceCode "Ungrouped")) ;;DemandGroup - 10  
   :Vignette  (or Vignette ForceCode) ;;Vignette - 11  
   :Operation (or Operation ForceCode) ;;Operation - 12  
   :Category  "Rotational" ;;Category - 13  
@@ -153,7 +154,7 @@
         data (join-by-map mapfile vignettefile)]
     (write-shifted-forges adjusted-file)
     (write-dup-recs duplicates-file)
-    (-> (->> (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %))) data)
+    (-> (->> (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %)) (not= nil (:Quantity %))) data)
              (map record->demand-record)
              (sort-by (juxt :Vignette :SRC :StartDay)))     
         (spork.util.stream/records->file outfile :field-order demand-fields))

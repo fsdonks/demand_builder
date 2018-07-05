@@ -1,6 +1,7 @@
 (ns demand-builder.core-test
   (:require [clojure.test :refer :all]
             [demand_builder.core :refer :all]
+            [demand_builder [formatter :as f]]
             [spork.util.table :as tbl]))
 
 ;C-c C-k to load me and then switch to this namespace to run-tests
@@ -34,9 +35,8 @@
   (let [inpath (str path "/Input/")
         vignettes (find-file inpath vcons-file?)
         mapping (find-file inpath vmap-file?)]
-    (->> (build-demand mapping vignettes inpath)
-         ;durations are of number type to we'll stringify the whole thing
-         (map (fn [r] (zipmap output-headers (map str r)))))))
+    (f/root->demandfile inpath)
+    (slurp (str inpath "Input_DEMAND.txt"))))
 
 (defn get-expected
   "Given a path to a taa_test_data directory, get the expected results in

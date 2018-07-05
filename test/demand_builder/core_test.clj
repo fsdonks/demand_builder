@@ -35,8 +35,7 @@
   (let [inpath (str path "/Input/")
         vignettes (find-file inpath vcons-file?)
         mapping (find-file inpath vmap-file?)]
-    (f/root->demandfile inpath)
-    (slurp (str inpath "Input_DEMAND.txt"))))
+    (f/join-by-map mapping vignettes)))
 
 (defn get-expected
   "Given a path to a taa_test_data directory, get the expected results in

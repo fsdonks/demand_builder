@@ -28,6 +28,24 @@
         (println "  actual:" (pr-str (:actual m)))))
     res))
 
+(def demand-schema {:Type :text
+                    :Enabled :text
+                    :Priority :text
+                    :Quantity :text
+                    :DemandIndex :text
+                    :StartDay :text
+                    :Duration :text
+                    :Overlap :text
+                    :SRC :text
+                    :SourceFirst :text
+                    :DemandGroup :text
+                    :Vignette :text
+                    :Operation :text
+                    :Category :text
+                    :Title10_32 :text
+                    :OITitle :text
+                    :Strength :text})
+
 (defn get-output
   "Given a path to a taa_test_data directory, get the demand builder
   results."
@@ -35,8 +53,9 @@
   (let [inpath (str path "/Input/")
         vignettes (find-file inpath vcons-file?)
         mapping (find-file inpath vmap-file?)]
-    (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %)))
-      (f/join-by-map mapping vignettes))))
+    (f/root->demandfile inpath)
+    (into [] (spork.util.table/tabdelimited->records (str inpath "Input_DEMAND.txt") :schema demand-schema :keywordize-fields? false))))
+    
 
 (defn get-expected
   "Given a path to a taa_test_data directory, get the expected results in
@@ -78,8 +97,10 @@
                       (map (fn [r] (dissoc r "Strength")) out))]]
     (println (str "Testing " p))
     (testing "Original output mispelled category, so let's make sure the fields match."
-      (is (= (keys (dissoc (first out) "People")) (keys (first expected)))))
+      (is (= (sort (filter #(not (or (= "People" %) (= "Strength" %))) (keys (first out)))) 
+             (sort (filter #(not= "Strength" %) (keys (first expected)))))))
     (testing "If we compare sets, won't account for duplicates."
       (is (= (count out) (count expected))))
     (testing "Does the expected output match the output?"
-      (is (= (set out) (set expected))))))
+      (is (= (set (map #(dissoc % "Strength") out))
+             (set (map #(dissoc % "Strength") expected)))))))

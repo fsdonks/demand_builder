@@ -95,7 +95,9 @@
                         (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))
         oos-string (flatten (vector "ForceCode\tReason\n" (map #(str % "\tNot in consolidated\n") map-only) (map #(str % "\tNot in map\n") cons-only)))]
     (spit oos-file (reduce str oos-string))
-    (flatten (conj joined-forges joined-vignettes))))
+    (filter 
+      #(and (> (:Duration %) 0) (not= 0 (:Quantity %)) (not= nil (:Quantity %)))
+      (flatten (conj joined-forges joined-vignettes)))))
 
 ;;Fields in Demand files
 (def demand-fields [:Type :Enabled :Priority :Quantity :DemandIndex :StartDay :Duration :Overlap
@@ -154,8 +156,7 @@
         data (join-by-map mapfile vignettefile)]
     (write-shifted-forges adjusted-file)
     (write-dup-recs duplicates-file)
-    (-> (->> (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %)) (not= nil (:Quantity %))) data)
-             (map record->demand-record)
+    (-> (->> (map record->demand-record data)
              (sort-by (juxt :Vignette :SRC :StartDay)))     
         (spork.util.stream/records->file outfile :field-order demand-fields))
     (flatten (vector mapfile vignettefile forgefiles))))

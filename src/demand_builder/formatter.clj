@@ -65,7 +65,7 @@
 ;; ***If there is not corresponding FORGE file found, will throw error. ONLY include scenarios that have an existing file
 ;; ***The file name (FORGE_SE-XXXX) has to match what is in the Mapping file
 ;;Returns a list of maps will the data needed to build the demand record
-(defn join-by-map [mapfile vignettefile]
+(defn join-by-map [mapfile vignettefile & {:keys [phases] :or {phases nil}}]
   (let [map-data (try
                    (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
                    (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e))))))
@@ -91,7 +91,9 @@
                                   forgedata (try
                                               (reduce-forge (ff/forge->records forgefile))
                                               (catch Exception e (throw (Exception. (str "File not found for FOREGE_" forge "\n" (.getMessage e))))))
-                                  min-start (apply min (map :StartDay forgedata))
+                                  min-start (if phases
+                                              (:Start (first (sort-by #(:Start %) phases)))
+                                              (apply min (map :StartDay forgedata)))
                                   offset (if (= 1 min-start) (dec (scenario-offset forge map-data)) (scenario-offset forge map-data))]]                                  
                         (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))
         oos-string (flatten (vector "ForceCode\tReason\n" (map #(str % "\tNot in consolidated\n") map-only) (map #(str % "\tNot in map\n") cons-only)))]
@@ -151,10 +153,13 @@
         mapfile      (first (isFile? "MAP_" files))
         vignettefile (first (isFile? "CONSOLIDATED_" files))
         forgefiles   (isFile? "FORGE_" files)
+        phases (when (spork.util.io/fexists? (str root "Phases.txt"))
+                 (into [] (spork.util.table/tabdelimited->records (str root "Phases.txt") :schema {:Phase :text :Start :number :Duration :number})))
         outfile      (str root (spork.util.io/fname root) "_DEMAND.txt")
         duplicates-file (str root "Duplicate-records.txt")
         adjusted-file (str root "Adjusted-records.txt")
-        data (join-by-map mapfile vignettefile)]
+        _ (println phases)
+        data (join-by-map mapfile vignettefile :phases phases)]
     (write-shifted-forges adjusted-file)
     (write-dup-recs duplicates-file)
     (-> (->> (map record->demand-record data)

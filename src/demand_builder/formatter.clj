@@ -91,7 +91,8 @@
                                   forgedata (try
                                               (reduce-forge (ff/forge->records forgefile))
                                               (catch Exception e (throw (Exception. (str "File not found for FOREGE_" forge "\n" (.getMessage e))))))
-                                  offset (scenario-offset forge map-data)]]
+                                  min-start (apply min (map :StartDay forgedata))
+                                  offset (if (= 1 min-start) (dec (scenario-offset forge map-data)) (scenario-offset forge map-data))]]                                  
                         (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))
         oos-string (flatten (vector "ForceCode\tReason\n" (map #(str % "\tNot in consolidated\n") map-only) (map #(str % "\tNot in map\n") cons-only)))]
     (spit oos-file (reduce str oos-string))

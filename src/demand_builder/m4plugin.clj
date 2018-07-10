@@ -39,6 +39,71 @@
     (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
     (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
 
+;;Overrode some of the functions in spork.excel
+;;These are specific *ONLY* to the SRC_by_Day sheet of FORGE
+;;Do not reuse these functions for anything else
+; ==================================
+;; ========== DON'T REUSE ==========
+(in-ns 'spork.util.excel.core)
+
+;; ========== DON'T REUSE ==========
+(defn tabular-region2
+  [sheet & {:keys [i] :or {i 0}}]
+  (let [fields (truncate-row (row->vec (nth (contiguous-rows sheet) i)))
+        fieldcount (count fields)
+        pooled     (s/->string-pool 100 1000)
+        read-cell-pooled (fn [cl]
+                           (let [res (read-cell cl)]
+                             (if (string? res) (pooled res) res)))]
+    (->> (contiguous-rows sheet) 
+         (map (fn [r]
+                (let [r (row->vec r nil read-cell-pooled)
+                      rcount (count r)]
+                  (cond (= rcount fieldcount) r
+                    (> rcount fieldcount) (subvec r 0 fieldcount)
+                    (< rcount fieldcount) (into r (take (- fieldcount rcount) 
+                                                    (repeat nil)))))))
+         (take-while (complement empty-row?)))))
+
+;; ========== DON'T REUSE ==========
+(defn sheet->table2
+  [sheet & {:keys [i] :or {i 0}}] 
+  (let [rows    (tabular-region2 sheet :i i)]
+    (when-let [fields  (first rows)]
+      (if-let [records (vec (rest rows))]
+        (tbl/make-table fields (v/transpose  records))
+        (tbl/make-table fields)))))
+
+;; ========== DON'T REUSE ==========
+(defn wb->tables2
+  [wb & {:keys [sheetnames i] :or {sheetnames :all i 0}}]
+  (let [sheets  (sheet-seq wb)]
+    (->> (if (= sheetnames :all) sheets
+           (let [names (set (map lower-case sheetnames))]
+             (filter #(contains? names ((comp lower-case sheet-name) %))
+               sheets)))
+         (map (fn [s] (do (println (sheet-name s))
+                        [(sheet-name s) (sheet->table2 s :i i)])))
+         (into {}))))
+
+;; ========== DON'T REUSE ==========
+(defn xlsx->tabdelimited2
+  [wbpath & {:keys [rootdir sheetnames i] 
+             :or {sheetnames :all rootdir (workbook-dir wbpath) i 0}}]
+  (let [tmap (wb->tables2 (load-workbook wbpath) :sheetnames sheetnames :i i)]
+    (doseq [[nm t] (seq tmap)]
+      (let [textpath (io/relative-path rootdir [(str nm ".txt")])]
+        (io/hock textpath (tbl/table->tabdelimited t))))))
+
+(in-ns 'demand_builder.m4plugin)
+;; ========== DON'T REUSE ==========
+;; =================================
+
+;;Option to use non-tabular SRC_by_Day sheet from FORGE in event more specific phase timing is needed for corner cases
+(defn forge->non-tab [forgefile dir sheetname]
+  (ex/xlsx->tabdelimited2 forgefile :rootdir dir :sheetnames [sheetname] :i 1))
+
+
 ;;Reads the first line of a tab delimited text file
 (defn read-header [file]
   (with-open [r (clojure.java.io/reader file)]

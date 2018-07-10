@@ -1,0 +1,5 @@
+Phase	Start	Duration
+FwdStation	1	8
+PH I	9	32
+PH IIa	41	32
+PH IIb	73	16

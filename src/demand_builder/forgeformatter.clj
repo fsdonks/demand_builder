@@ -45,6 +45,18 @@
           formatted-data (map #(zipmap header %) (filter #(and (>= (count %) h) (not= "" (first %))) data))]
       {:header header :phases formatted-phases :data formatted-data})))
 
+;;Gets phase durting time
+(defn get-phase [phases time]
+ (last (filter identity (for [p (sort-by #(second %) phases)] (if (<= (second p) time) (first p))))))
+
+;;Determins the current and next phase
+;;Returns the difference between the two phases
+(defn get-duration [phases time]
+  (let [phase (get-phase phases time)
+        times (map #(get phases %)
+                (map first (partition-by #(= phase %) (map first (sort-by second phases)))))]
+    (- (second times) (first times))))
+
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
 ;;Any blank or lines that do not contain individual data (No SRC value or aggregated/total values)
 ;;Expands each line into multiple lines split by a change in phase or change in quantity (by SRC)
@@ -52,13 +64,11 @@
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn ->record [line phases]
   (let [times (sort (map first (filter #(number? (first %)) line)))
-        get-phase (fn [phases time]
-                      (last (filter identity (for [p (sort-by #(second %) phases)] (if (<= (second p) time) (first p))))))
         last-phase (last (sort phases))]
     (filter #(not (zero? (:Quantity %)))
       (for [t times] {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
                       :StartDay t 
-                      :Duration periodlength
+                      :Duration (get-duration phases t)
                       :Operation (get-phase phases t)
                       :Strength (read-num (get line "Strength")) 
                       :SRC (get line "SRC")
@@ -78,7 +88,7 @@
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn reduce-records [records]
   (let [by-phase (partition-by :Operation (sort-by #(vector (:StartDay %) (:Quantity %)) records))]
-    (flatten (map collapse by-phase))))
+    (filter #(and (> (:Duration %) 0) (not= 0 (:Quantity %)) (not= nil (:Quantity %))) (flatten (map collapse by-phase)))))
 
 ;;Returns a list of maps with the keys :DemandGroup, :Vignette, :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 ;;Uses read-forge, ->record, and reduce-records to build the inital map list
@@ -127,6 +137,4 @@
 
 (defn last-phase [records]
   (:Operation (last (sort-by :StartDay records))))
-
-(def ff "C:\\Users\\michael.m.pavlak.civ\\Documents\\demand_builder\\test\\resources\\complexest\\Input\\new-forge.txt")
 

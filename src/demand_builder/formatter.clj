@@ -59,6 +59,65 @@
                              _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]
       (assoc (first v) :Quantity quantity))))
 
+;;Reads vignette file, throws more descriptive error
+(defn read-vignette [vignettefile]
+ (try
+  (reduce-cons (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema)))
+  (catch java.lang.AssertionError e (throw (Exception. (str "Error reading CONSOLIDATED file (" vignettefile ")\n" (.getMessage e)))))))
+
+;;Reads mapping file, throws more descriptive error
+(defn read-mapfile [mapfile]
+ (try
+  (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
+  (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e)))))))
+
+;;Reads forgefile, throws more descriptive error
+(defn read-forgefile [fc forgefile]
+ (try
+  (reduce-forge (ff/forge->records forgefile))
+  (catch Exception e (throw (Exception. (str "File not found for FOREGE_" fc "\n" (.getMessage e)))))))
+
+;;Returns true when the fc string represents a scenario
+(defn scenario? [string] (= "SE" (subs string 0 2))) 
+
+;;Filters data by FC
+(defn filter-fc [fc data] (filter #(= fc (:ForceCode %)) data))
+
+;;Returns the starting day of a scenario
+(defn scenario-offset [fc map-data] (:StartDay (first (filter-fc fc map-data))))
+
+;;Returns the ending day of a scenario
+(defn scenario-mapend [fc map-data] (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
+
+;;Gets the scenario path given the FC and mapfile (file should exist in same directory as mapfile)
+(defn forgepath [fc mapfile] (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "FORGE_" fc ".txt")))
+
+;;Formats forges and syncs timing to map
+(defn join-forges [scenarios map-data mapfile & {:keys [phases] :or {phases nil}}]
+  (for [forge scenarios
+        :let [mapend (scenario-mapend forge map-data)
+              forgedata (read-forgefile forge (forgepath forge mapfile))
+              phase-info (filter #(= forge (:FC %)) phases)
+              min-start (if (pos? (count phase-info))
+                          (:Start (first (sort-by #(:Start %) phase-info)))
+                          (apply min (map :StartDay forgedata)))
+              offset (if (= 1 min-start)
+                       (dec (scenario-offset forge map-data))
+                       (scenario-offset forge map-data))]]
+    (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend)))
+
+;;Finds vignettes that are not in map but in cons or not in cons but in map, then writes to log file
+(defn write-oos-vignettes [mapfile map-data vignette-data]
+  (let [vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
+        oos-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Out-of-scope-vignettes.txt"))
+        map-only (clojure.set/difference (set vignettes) (set (map :ForceCode vignette-data)))
+        cons-only (clojure.set/difference (set (map :ForceCode vignette-data)) (set vignettes))
+        oos-string (flatten (vector "ForceCode\tReason\n"
+                              (map #(str % "\tNot in consolidated\n") map-only)
+                              (map #(str % "\tNot in map\n") cons-only)))]
+    (spit oos-file (reduce str oos-string))))
+
+
 ;;Reads the mapfile and joins the appropriated data from either the Vignette Consolidated file or FORGE file.
 ;;For each Vignette in the map, joins timing data from map with quantity information from vignette consolidated file
 ;;For each Scenario, looks for the correponding Forge file and adds the start day offset and synconized to the map
@@ -66,38 +125,13 @@
 ;; ***The file name (FORGE_SE-XXXX) has to match what is in the Mapping file
 ;;Returns a list of maps will the data needed to build the demand record
 (defn join-by-map [mapfile vignettefile & {:keys [phases] :or {phases nil}}]
-  (let [map-data (try
-                   (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
-                   (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e))))))
-        vignette-data (try
-                        (reduce-cons (into [] (spork.util.table/tabdelimited->records vignettefile :schema vignette-schema)))
-                        (catch java.lang.AssertionError e (throw (Exception. (str "Error reading CONSOLIDATED file (" vignettefile ")\n" (.getMessage e))))))
-        scenario? (fn [string] (= "SE" (subs string 0 2))) ;;apply str, take n does not throw index out of bounds error if nil/length less than range (but should not be nil here ever)
-        scenarios (filter scenario? (map :ForceCode map-data))
+  (let [map-data (read-mapfile mapfile)
+        vignette-data (read-vignette vignettefile)
+        scenarios (filter scenario? (map :ForceCode map-data))               
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
-        map-only (clojure.set/difference (set vignettes) (set (map :ForceCode vignette-data)))
-        cons-only (clojure.set/difference (set (map :ForceCode vignette-data)) (set vignettes))
-        oos-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Out-of-scope-vignettes.txt"))
-        duplicates-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Duplicate-records.txt"))
-        adjusted-duration-file (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "Adjusted-durations.txt"))
-        filter-fc (fn [fc data] (filter #(= fc (:ForceCode %)) data))
-        scenario-offset (fn [fc map-data] (:StartDay (first (filter-fc fc map-data))))
-        scanario-mapend (fn [fc map-data] (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
-        forgepath (fn [fc] (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "FORGE_" fc ".txt")))
         joined-vignettes (map #(conj (first (filter-fc % map-data)) (first (filter-fc % vignette-data))) vignettes)
-        joined-forges (for [forge scenarios 
-                            :let [mapend (scanario-mapend forge map-data)
-                                  forgefile (forgepath forge)
-                                  forgedata (try
-                                              (reduce-forge (ff/forge->records forgefile))
-                                              (catch Exception e (throw (Exception. (str "File not found for FOREGE_" forge "\n" (.getMessage e))))))
-                                  min-start (if phases
-                                              (:Start (first (sort-by #(:Start %) phases)))
-                                              (apply min (map :StartDay forgedata)))
-                                  offset (if (= 1 min-start) (dec (scenario-offset forge map-data)) (scenario-offset forge map-data))]]                                  
-                        (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend))
-        oos-string (flatten (vector "ForceCode\tReason\n" (map #(str % "\tNot in consolidated\n") map-only) (map #(str % "\tNot in map\n") cons-only)))]
-    (spit oos-file (reduce str oos-string))
+        joined-forges (join-forges scenarios map-data mapfile :phases phases)]
+    (write-oos-vignettes mapfile map-data vignette-data)
     (filter 
       #(and (> (:Duration %) 0) (not= 0 (:Quantity %)) (not= nil (:Quantity %)))
       (flatten (conj joined-forges joined-vignettes)))))
@@ -154,11 +188,11 @@
         vignettefile (first (isFile? "CONSOLIDATED_" files))
         forgefiles   (isFile? "FORGE_" files)
         phases (when (spork.util.io/fexists? (str root "Phases.txt"))
-                 (into [] (spork.util.table/tabdelimited->records (str root "Phases.txt") :schema {:Phase :text :Start :number :Duration :number})))
+                 (into [] (spork.util.table/tabdelimited->records (str root "Phases.txt") 
+                            :schema {:FC :text :Phase :text :Start :number :Duration :number})))
         outfile      (str root (spork.util.io/fname root) "_DEMAND.txt")
         duplicates-file (str root "Duplicate-records.txt")
         adjusted-file (str root "Adjusted-records.txt")
-        _ (println phases)
         data (join-by-map mapfile vignettefile :phases phases)]
     (write-shifted-forges adjusted-file)
     (write-dup-recs duplicates-file)

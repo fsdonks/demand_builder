@@ -50,17 +50,15 @@
 
 ;;When duplicate vignettes, add quantites - only when multiple rows with the same SRC
 (defn reduce-cons [vignettes]
-  (let [by-srcs (map second (group-by #(vector (:SRC %) (:ForceCode %)) vignettes))]
+  (let [by-srcs (map second (group-by #(vector (:SRC %) (:ForceCode %)) (sort-by #(vector (:SRC %) (:StartDay %)) vignettes)))]
     (for [v by-srcs :let [quantity (apply + (map :Quantity v)) 
-                          _ (when (> (count v) 1) (do (println "\nDuplicate Records in Consolidated :\n") (doseq [val v] (println v))))
                           _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]
       (assoc (first v) :Quantity quantity))))
 
 ;;When duplicate forges, add quantites - only when same SRC and startDay
 (defn reduce-forge [forges]
-  (let [by-src-day (map second (group-by #(vector (:SRC %) (:StartDay %)) forges))]
+  (let [by-src-day (map second (group-by #(vector (:SRC %) (:StartDay %)) (sort-by #(vector (:SRC %) (:StartDay %)) forges)))]
     (for [v by-src-day :let [quantity (apply + (map :Quantity v)) 
-                             _ (when (> (count v) 1) (do (println "\nDuplicate Records in Forge:\n") (doseq [val v] (println v))))
                              _ (when (> (count v) 1) (doseq [val v] (swap! dup-recs conj val)))]]
       (assoc (first v) :Quantity quantity))))
 
@@ -79,7 +77,7 @@
 ;;Reads forgefile, throws more descriptive error
 (defn read-forgefile [fc forgefile]
  (try
-  (reduce-forge (ff/any-forge->records forgefile))
+  (ff/merge-duration (reduce-forge (ff/any-forge->records forgefile)))
   (catch Exception e (throw (Exception. (str "File not found for FOREGE_" fc "\n" (.getMessage e)))))))
 
 ;;Returns true when the fc string represents a scenario
@@ -104,9 +102,7 @@
               min-start (if (pos? (count phase-info))
                           (:Start (first (sort-by #(:Start %) phase-info)))
                           (apply min (map :StartDay forgedata)))
-              offset (if (= 1 min-start)
-                       (dec (scenario-offset forge map-data))
-                       (scenario-offset forge map-data))]]
+              offset (dec (scenario-offset forge map-data))]]
     (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend :fc forge :phases phases)))
 
 ;;Finds vignettes that are not in map but in cons or not in cons but in map, then writes to log file

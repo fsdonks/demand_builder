@@ -139,7 +139,7 @@
     (map #(assoc (first %) :Duration (reduce + (map :Duration %))) by-phase)))
 
 (defn forge->records [forgefile]
-  (sort-by #(vector (:SRC %) (:StartDay %)) (merge-duration (forge->map forgefile))))
+  (sort-by #(vector (:SRC %) (:StartDay %)) (forge->map forgefile)))
 
 (defn last-phase [records]
   (:Operation (last (sort-by :StartDay records))))

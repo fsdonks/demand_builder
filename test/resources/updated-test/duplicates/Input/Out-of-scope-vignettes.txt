@@ -1,0 +1,3 @@
+ForceCode	Reason
+not_in	Not in consolidated
+S-706	Not in map

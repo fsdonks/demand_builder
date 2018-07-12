@@ -1,0 +1,30 @@
+Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title10_32	OITitle	Strength
+DemandRecord	TRUE	1	1	1	91	273	45	08670R000	Uniform	S-706	S-706	S-706	Rotational	10	MED LOG MGMT CTR	14
+DemandRecord	TRUE	1	2	1	91	273	45	10473R100	Uniform	S-7337	S-7337	S-7337	Rotational	10	QM COMP SPLY CO	208
+DemandRecord	TRUE	1	2	1	1100	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1108	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1116	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1124	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	1	1	1132	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	9	1	1140	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	3	1	1148	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1100	8	45	43205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1108	8	45	43205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1116	8	45	43205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1124	8	45	43205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	1	1	1132	8	45	43205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	9	1	1140	8	45	43205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	3	1	1148	8	45	43205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1156	8	45	43205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	6	1	1164	8	45	43205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	7	1	1172	8	45	43205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1100	8	45	98205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1108	8	45	98205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1116	8	45	98205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1124	8	45	98205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	1	1	1132	8	45	98205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	9	1	1140	8	45	98205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	3	1	1148	8	45	98205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1156	8	45	98205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	6	1	1164	8	45	98205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	7	1	1172	8	45	98205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381

@@ -74,7 +74,7 @@
   [path]
   (= (set (get-expected path)) (set (get-output path))))
 
-(defn add-path [test-name]  (str "test/resources/" test-name))
+(defn add-path [test-name]  (str "test/resources/updated-test/" test-name))
 
 (def test-paths
   [(add-path "wrong_phase_extended")
@@ -85,17 +85,19 @@
    (add-path "complexest")
    (add-path "inactive_extension")
    (add-path "intermittent")
-   (add-path "increments")])
+   (add-path "increments")
+   (add-path "duplicates")
+   (add-path "early_map")])
 
 (deftest demandbuilder
   (doseq [p test-paths
-          :let [out (get-output p)
+          :let [_ (println (str "Testing " p))
+                out (get-output p)
                 expected (get-expected p)
                 ;;expected files don't always contain Strength.
                 out (if (contains? (set (keys (first expected))) "Strength")
                       out
                       (map (fn [r] (dissoc r "Strength")) out))]]
-    (println (str "Testing " p))
     (testing "Original output mispelled category, so let's make sure the fields match."
       (is (= (sort (filter #(not (or (= "People" %) (= "Strength" %))) (keys (first out)))) 
              (sort (filter #(not= "Strength" %) (keys (first expected)))))))

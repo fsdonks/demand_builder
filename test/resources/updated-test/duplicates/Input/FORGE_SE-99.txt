@@ -1,0 +1,8 @@
+UIN Quantity	Time Period Begin Day	Time Period Days	Subphase	SRC Strength	SRC	Title					
+2	9	8	PH I	381	01205K000	Ponies					
+4	17	8	PH I	381	01205K000	Ponies					
+2	25	8	PH I	381	01205K000	Ponies					
+4	33	8	PH I	381	01205K000	Ponies					
+3	17	8	PH I	381	01205K000	Ponies					
+2	25	8	PH I	381	01205K000	Ponies					
+4	33	8	PH I	381	01205K000	Ponies					

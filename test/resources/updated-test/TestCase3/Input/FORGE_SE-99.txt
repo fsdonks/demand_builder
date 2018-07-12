@@ -1,0 +1,9 @@
+UIN Quantity	Time Period Begin Day	Time Period Days	Subphase	SRC Strength	SRC	Title											
+6	17	8	PH I	163	19473K000	MP CO CBT SPT											
+4	25	8	PH I	163	19473K000	MP CO CBT SPT											
+7	33	8	PH I	163	19473K000	MP CO CBT SPT											
+7	41	8	PH IIa	163	19473K000	MP CO CBT SPT											
+6	49	8	PH IIa	163	19473K000	MP CO CBT SPT											
+6	57	8	PH IIa	163	19473K000	MP CO CBT SPT											
+6	65	8	PH IIa	163	19473K000	MP CO CBT SPT											
+6	73	8	PH IIb	163	19473K000	MP CO CBT SPT											

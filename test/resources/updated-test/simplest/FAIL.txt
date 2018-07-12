@@ -1,0 +1,17 @@
+The DemandRecord fields for demands from the CONSOLIDATED file
+should come from
+Demandgroup - always "Ungrouped"
+Operation - MAP field "Scenarios and Vignettes"
+Vignette - Event/Force List code
+
+In this case, we should have
+
+Demandgroup - Ungrouped
+Operation - "B"
+Vignette - "Beacon"
+
+Instead we have
+
+Demandgroup - Beacon
+Operation - B
+Vignette - Beacon

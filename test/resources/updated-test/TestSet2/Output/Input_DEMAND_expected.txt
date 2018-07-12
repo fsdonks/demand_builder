@@ -1,0 +1,2 @@
+Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title10_32	OITitle
+DemandRecord	TRUE	1	20	1	12	467	45	06385K000	Uniform	Ungrouped	V-10-22	V-10-22	Rotational	10	"FA BN, ABCT"

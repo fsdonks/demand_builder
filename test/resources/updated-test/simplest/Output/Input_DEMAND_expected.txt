@@ -1,0 +1,2 @@
+Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title10_32	OITitle
+DemandRecord	TRUE	1	10	1	20	1	45	10473R100	Uniform	Ungrouped	Beacon	Beacon	Rotational	32	QM COMP SPLY CO

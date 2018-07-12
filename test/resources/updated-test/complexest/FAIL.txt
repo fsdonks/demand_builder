@@ -1,0 +1,4 @@
+FORGE demands needs to start on the day specified by the mapping file.
+
+The duration of a next to last FORGE demand for SRC 01225K000 is 0 when
+it should be 8.  Last demand should probably be 8 too.

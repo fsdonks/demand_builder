@@ -1,0 +1,5 @@
+This test was made by Shawnette Rochelle.
+
+This is intended to test whether or not the tool correctly populates 1 SRC, 1 demand group.  
+It is looking at whether the Start Dates are correctly populated, are the correct Phases populated, and whether the tool
+works with a blank Consolidated file.

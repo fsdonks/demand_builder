@@ -55,7 +55,6 @@
   (let [phase (get-phase phases time)
         times (map #(get phases %)
                 (map first (partition-by #(= phase %) (map first (sort-by second phases)))))]
-    (println time (- (second times) (first times)))
     (- (second times) (first times))))
 
 (defn get-duration [t times]

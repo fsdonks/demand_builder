@@ -26,19 +26,6 @@
 (defn forge-filename->fc [forgefile input-map]
   (:ForceCode (first (filter #(= forgefile (:Path %)) input-map))))
 
-;;Now using normal tabular input instead of weird SRC_By_Day formatting
-(defn forgexlsx->tsv [forgefile dir input-map]
-  (let [p (first (filter #(= forgefile (:Path %)) input-map))]
-    (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Path p)])
-    (rename-file
-      (str dir (:Sheetname p) ".txt") 
-      (str dir (io/as-directory outputdir) "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
-
-(defn forgexlsx->tsv [forgefile dir input-map]
-  (let [p (first (filter #(= forgefile (:Path %)) input-map))]
-    (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
-    (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
-
 ;;Overrode some of the functions in spork.excel
 ;;These are specific *ONLY* to the SRC_by_Day sheet of FORGE
 ;;Do not reuse these functions for anything else
@@ -53,7 +40,7 @@
         fieldcount (count fields)
         pooled     (s/->string-pool 100 1000)
         read-cell-pooled (fn [cl]
-                           (let [res (read-cell cl)]
+                           (let [res (clojure.string/replace (read-cell cl) #"[\n]" " ")]
                              (if (string? res) (pooled res) res)))]
     (->> (contiguous-rows sheet) 
          (map (fn [r]
@@ -103,6 +90,16 @@
 (defn forge->non-tab [forgefile dir sheetname]
   (ex/xlsx->tabdelimited2 forgefile :rootdir dir :sheetnames [sheetname] :i 1))
 
+(defn forgexlsx->tsv [forgefile dir input-map]
+  (let [p (first (filter #(= forgefile (:Path %)) input-map))
+        _ (println forgefile)
+        _ (def p p)
+        _ (println "DIR: " dir)]
+    (if (= (:Sheetname p) "Unit_Node_Detail")
+      (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
+      (forge->non-tab forgefile dir (:Sheetname p)))
+    (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
+
 
 ;;Reads the first line of a tab delimited text file
 (defn read-header [file]
@@ -147,11 +144,8 @@
 (defn find-map-file [input-map]
   (:Path (first (filter #(= "MAP" (:Type %)) input-map))))
 
-;;Converts the excel workbooks to tsv and creates the required path structure and file names
-(defn setup-directory [input-file]
-  (let [root (io/as-directory (clojure.string/replace input-file (io/fname input-file) ""))
-        inputs (io/as-directory (str root outputdir))
-        in-map (read-input-file input-file)
+(defn setup-dir [in-map root]
+  (let [inputs (io/as-directory (str root outputdir))
         find-file (fn [type] (filter #(= type (:Type %)) in-map))
         vmap (first (find-file "MAP"))
         vcons (first (find-file "CONSOLIDATED"))
@@ -166,6 +160,12 @@
     (fix-header new-con)
     (rename-file new-map (clojure.string/replace new-map (io/fname new-map) (str "MAP_" (io/fname new-map))))
     (rename-file new-con (clojure.string/replace new-con (io/fname new-con) (str "CONSOLIDATED_" (io/fname new-con))))))
+
+;;Converts the excel workbooks to tsv and creates the required path structure and file names
+(defn setup-directory [input-file]
+  (let [root (io/as-directory (clojure.string/replace input-file (io/fname input-file) ""))
+        in-map (read-input-file input-file)]
+    (setup-dir in-map root)))
 
 ;;Builds demand file by formatting inputs according to the input-file
 (defn inputfile->demand [input-file]

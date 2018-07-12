@@ -55,7 +55,12 @@
   (let [phase (get-phase phases time)
         times (map #(get phases %)
                 (map first (partition-by #(= phase %) (map first (sort-by second phases)))))]
+    (println time (- (second times) (first times)))
     (- (second times) (first times))))
+
+(defn get-duration [t times]
+  (let [t2 (drop-while #(not= t %) times)]
+    (if (second t2) (- (second t2) t) 8)))
 
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
 ;;Any blank or lines that do not contain individual data (No SRC value or aggregated/total values)
@@ -63,22 +68,21 @@
 ;;Also fills in the remaining field not part of the raw input (Opertion/Phase, Duration, ect)
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn ->record [line phases]
-  (let [times (sort (map first (filter #(number? (first %)) line)))
-        last-phase (last (sort phases))]
+  (let [times (sort (map first (filter #(number? (first %)) line)))]
     (filter #(not (zero? (:Quantity %)))
       (for [t times] {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
-                      :StartDay t 
-                      :Duration (get-duration phases t)
+                      :StartDay (- t (second (first (sort phases)))) 
+                      :Duration (get-duration t times) 
                       :Operation (get-phase phases t)
                       :Strength (read-num (get line "Strength")) 
                       :SRC (get line "SRC")
                       :Title (get line "Title")}))))
 
 (defn collapse [records & {:keys [formatted]}]
-  (let [r (sort-by :StartDay records)]
+  (let [r (sort-by #(vector (:Operation %) (:SRC %) (:StartDay %)) records)]
     (if (<= (count records) 1)
       (conj formatted (first r))
-      (if (= (:Quantity (first r)) (:Quantity (second r)))
+      (if (and (= (:SRC (first r) (:SRC (second r)))) (= (:Quantity (first r)) (:Quantity (second r))))
         (collapse (conj (drop 2 r) (assoc (first r) :Duration (+ (:Duration (first r)) (:Duration (second r))))) :formatted formatted)
         (collapse (drop 1 r) :formatted (conj formatted (first r)))))))
 
@@ -101,6 +105,9 @@
         last-phase (last (sort (:phases input)))]
     (for [m (flatten (map #(reduce-records (->record % (:phases input))) (:data input)))]
       (-> (assoc m :DemandGroup vignette) (assoc :Vignette vignette)))))
+
+
+
 
 
 ;; =====================================================================================================================================
@@ -137,4 +144,22 @@
 
 (defn last-phase [records]
   (:Operation (last (sort-by :StartDay records))))
+
+(defn read-header [file]
+ (with-open [r (clojure.java.io/reader file)]
+   (clojure.string/split (first (line-seq r)) #"\t")))
+
+(def unit-node-detail-header ["UIN Quantity" "Time Period Begin Day" "Time Period Days" "SRC Strength"])
+
+;;Checks is sheet is Unit_Node_Detail sheet by checking for needed columns in unit-node-detail-header
+(defn isUND? [file]
+  (not= #{} (clojure.set/intersection (set (read-header file)) (set unit-node-detail-header))))
+
+;;Can read either Unit_Node_Detail sheet or SRC_By_Day sheet
+(defn any-forge->records [filename]
+  (if (isUND? filename)
+    (forge->records filename)
+    (forgefile->records filename)))
+
+
 

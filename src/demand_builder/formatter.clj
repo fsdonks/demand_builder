@@ -25,12 +25,17 @@
 ;;list of forge records that need to be adjusted to match the map
 (def shifted-forges (atom []))
 
+;;Filters data by FC
+(defn filter-fc [fc data] (filter #(= fc (:ForceCode %)) data))
+
 ;;Takes a list of maps (of FORGE data), the last phase for the FORGE scenario, and the final day for the scenario from the map (Start + Duration from map)
 ;;For the last period of each record, if the phase matches last phase, will change the duration to match the ending time specified by the map
 ;; **This can either increase or decrease the initial duration
 ;;Returns a list of maps (of FORGE data) that has been syncronized to end on the same day as what is listed in the map file.
-(defn sync-map [forgerecords lastphase mapend]
-  (let [lastday (apply max (map :StartDay forgerecords))
+(defn sync-map [forgerecords lastphase mapend & {:keys [phases fc] :or {phases nil fc nil}}]
+  (let [lastday (if phases
+                  (apply max (map #(+ (:Start %) (:Duration %)) (filter-fc fc phases)))
+                  (apply max (map :StartDay forgerecords)))        
         splitrecs (partition-by :SRC (filter #(= lastphase (:Operation %)) (sort-by :SRC forgerecords)))
         lastrecs (filter #(= lastday (:StartDay %)) (map #(last (sort-by :StartDay %)) splitrecs))
         adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)
@@ -74,20 +79,18 @@
 ;;Reads forgefile, throws more descriptive error
 (defn read-forgefile [fc forgefile]
  (try
-  (reduce-forge (ff/forge->records forgefile))
+  (reduce-forge (ff/any-forge->records forgefile))
   (catch Exception e (throw (Exception. (str "File not found for FOREGE_" fc "\n" (.getMessage e)))))))
 
 ;;Returns true when the fc string represents a scenario
 (defn scenario? [string] (= "SE" (subs string 0 2))) 
 
-;;Filters data by FC
-(defn filter-fc [fc data] (filter #(= fc (:ForceCode %)) data))
-
 ;;Returns the starting day of a scenario
 (defn scenario-offset [fc map-data] (:StartDay (first (filter-fc fc map-data))))
 
 ;;Returns the ending day of a scenario
-(defn scenario-mapend [fc map-data] (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
+(defn scenario-mapend [fc map-data]
+  (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
 
 ;;Gets the scenario path given the FC and mapfile (file should exist in same directory as mapfile)
 (defn forgepath [fc mapfile] (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "FORGE_" fc ".txt")))
@@ -104,7 +107,7 @@
               offset (if (= 1 min-start)
                        (dec (scenario-offset forge map-data))
                        (scenario-offset forge map-data))]]
-    (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend)))
+    (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend :fc forge :phases phases)))
 
 ;;Finds vignettes that are not in map but in cons or not in cons but in map, then writes to log file
 (defn write-oos-vignettes [mapfile map-data vignette-data]

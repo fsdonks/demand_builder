@@ -87,7 +87,8 @@
    (add-path "intermittent")
    (add-path "increments")
    (add-path "duplicates")
-   (add-path "early_map")])
+   ;(add-path "early_map")
+   ])
 
 (deftest demandbuilder
   (doseq [p test-paths

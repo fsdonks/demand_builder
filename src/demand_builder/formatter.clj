@@ -1,6 +1,7 @@
 (ns demand_builder.formatter
   (:require [spork.util table parsing io]
-            [demand_builder [forgeformatter :as ff]]))
+            [demand_builder [forgeformatter :as ff]]
+            [clojure.java.io :as jio]))
 
 ;;A name space to refactor demand_builder (core)
 
@@ -162,12 +163,14 @@
   :Strength Strength}) ;;Strength - 16  
 
 (defn write-shifted-forges [outfile]
+  (jio/delete-file outfile true)
   (println "Number of forges shifted: " (count @shifted-forges))
   (doseq [d @shifted-forges]
     (spit outfile (str d "\n") :append true))
   (def shifted-forges (atom [])))
 
 (defn write-dup-recs [outfile]
+  (jio/delete-file outfile true)
   (println "Number of duplicate records: " (count @dup-recs))
   (doseq [d @dup-recs]
     (spit outfile (str d "\n") :append true))

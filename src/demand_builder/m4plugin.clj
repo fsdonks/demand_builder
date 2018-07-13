@@ -91,15 +91,11 @@
   (ex/xlsx->tabdelimited2 forgefile :rootdir dir :sheetnames [sheetname] :i 1))
 
 (defn forgexlsx->tsv [forgefile dir input-map]
-  (let [p (first (filter #(= forgefile (:Path %)) input-map))
-        _ (println forgefile)
-        _ (def p p)
-        _ (println "DIR: " dir)]
+  (let [p (first (filter #(= forgefile (:Path %)) input-map))]
     (if (= (:Sheetname p) "Unit_Node_Detail")
       (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
       (forge->non-tab forgefile dir (:Sheetname p)))
     (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
-
 
 ;;Reads the first line of a tab delimited text file
 (defn read-header [file]

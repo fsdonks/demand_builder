@@ -61,9 +61,9 @@
   (let [t2 (drop-while #(not= t %) times)]
     (if (second t2) (- (second t2) t) 8)))
 
-(defn get-startday [t times]
+(defn get-startday [t times startday]
   (let [prev (last (take-while #(not= t %) times))]
-    (if prev (- t prev) 1)))
+    (if prev (+ prev startday) 1)))
   
 
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
@@ -73,15 +73,17 @@
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn ->record [line phases]
   (let [times (sort (map first (filter #(number? (first %)) line)))
-        forgestart (second (first (sort phases)))]
+        forgestart (second (first (sort phases)))
+        startday (first times)]
     (filter #(not (zero? (:Quantity %)))
-      (for [t times] {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
-                      :StartDay (- (get-startday t times) forgestart) 
-                      :Duration (get-duration t times) 
-                      :Operation (get-phase phases t)
-                      :Strength (read-num (get line "Strength")) 
-                      :SRC (get line "SRC")
-                      :Title (get line "Title")}))))
+      (for [t times]
+        {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
+         :StartDay (- (get-startday t times startday) forgestart) 
+         :Duration (get-duration t times) 
+         :Operation (get-phase phases t)
+         :Strength (read-num (get line "Strength")) 
+         :SRC (get line "SRC")
+         :Title (get line "Title")}))))
 
 (defn collapse [records & {:keys [formatted]}]
   (let [r (sort-by #(vector (:Operation %) (:SRC %) (:StartDay %)) records)]

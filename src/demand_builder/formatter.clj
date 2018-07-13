@@ -1,7 +1,7 @@
 (ns demand_builder.formatter
   (:require [spork.util table parsing io]
             [demand_builder [forgeformatter :as ff]]
-            [clojure.java.io :as jio]))
+            [clojure.java [io :as jio]]))
 
 ;;A name space to refactor demand_builder (core)
 
@@ -29,21 +29,27 @@
 ;;Filters data by FC
 (defn filter-fc [fc data] (filter #(= fc (:ForceCode %)) data))
 
+
+(defn shorten-recs [recs mapend lastphase]
+  (filter #(and (= lastphase (:Operation %)) (<= mapend (+ (:StartDay %) (:Duration %)))) recs))
+
+(defn extend-recs [recs mapend lastphase]
+  (let [last-phase-recs (filter #(= lastphase (:Operation %)) recs)
+        last-day-in-phase (apply max (map :StartDay last-phase-recs))]
+    (filter #(= last-day-in-phase (:StartDay %)) last-phase-recs)))
+
 ;;Takes a list of maps (of FORGE data), the last phase for the FORGE scenario, and the final day for the scenario from the map (Start + Duration from map)
 ;;For the last period of each record, if the phase matches last phase, will change the duration to match the ending time specified by the map
 ;; **This can either increase or decrease the initial duration
 ;;Returns a list of maps (of FORGE data) that has been syncronized to end on the same day as what is listed in the map file.
 (defn sync-map [forgerecords lastphase mapend & {:keys [phases fc] :or {phases nil fc nil}}]
-  (let [lastday (if phases
-                  (apply max (map #(+ (:Start %) (:Duration %)) (filter-fc fc phases)))
-                  (apply max (map :StartDay forgerecords)))        
-        splitrecs (partition-by :SRC (filter #(= lastphase (:Operation %)) (sort-by :SRC forgerecords)))
-        lastrecs (filter #(= lastday (:StartDay %)) (map #(last (sort-by :StartDay %)) splitrecs))
+  (let [lastday (apply max (map #(+ (:StartDay %) (:Duration %)) (filter #(= lastphase (:Operation %)) forgerecords)))
+        lastrecs (if (< mapend lastday) (shorten-recs forgerecords mapend lastphase) (extend-recs forgerecords mapend lastphase))
         adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)
         _ (doseq [r (zipmap lastrecs adjusted)]
             (when (not= (:Duration (first r)) (:Duration (second r)))
               (swap! shifted-forges conj (first r))))] 
-    (filter #(pos? (:Duration %))
+    (filter #(and (pos? (:Duration %)) (>= mapend (+ (:StartDay %) (:Duration %))))
       (flatten (conj adjusted (into [] (clojure.set/difference (set forgerecords) (set lastrecs))))))))
 
 ;;list of duplicate records in either forge or consolidated files
@@ -104,7 +110,8 @@
                           (:Start (first (sort-by #(:Start %) phase-info)))
                           (apply min (map :StartDay forgedata)))
               offset (dec (scenario-offset forge map-data))]]
-    (sync-map (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata) mapend :fc forge :phases phases)))
+    (sync-map 
+      (map #(assoc % :StartDay (+ offset (:StartDay %))) forgedata) (ff/last-phase forgedata :mapend mapend :offset offset) mapend)))
 
 ;;Finds vignettes that are not in map but in cons or not in cons but in map, then writes to log file
 (defn write-oos-vignettes [mapfile map-data vignette-data]

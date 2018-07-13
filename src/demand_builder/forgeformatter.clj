@@ -61,16 +61,22 @@
   (let [t2 (drop-while #(not= t %) times)]
     (if (second t2) (- (second t2) t) 8)))
 
+(defn get-startday [t times]
+  (let [prev (last (take-while #(not= t %) times))]
+    (if prev (- t prev) 1)))
+  
+
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
 ;;Any blank or lines that do not contain individual data (No SRC value or aggregated/total values)
 ;;Expands each line into multiple lines split by a change in phase or change in quantity (by SRC)
 ;;Also fills in the remaining field not part of the raw input (Opertion/Phase, Duration, ect)
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn ->record [line phases]
-  (let [times (sort (map first (filter #(number? (first %)) line)))]
+  (let [times (sort (map first (filter #(number? (first %)) line)))
+        forgestart (second (first (sort phases)))]
     (filter #(not (zero? (:Quantity %)))
       (for [t times] {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
-                      :StartDay (- t (second (first (sort phases)))) 
+                      :StartDay (- (get-startday t times) forgestart) 
                       :Duration (get-duration t times) 
                       :Operation (get-phase phases t)
                       :Strength (read-num (get line "Strength")) 
@@ -141,8 +147,10 @@
 (defn forge->records [forgefile]
   (sort-by #(vector (:SRC %) (:StartDay %)) (forge->map forgefile)))
 
-(defn last-phase [records]
-  (:Operation (last (sort-by :StartDay records))))
+(defn last-phase [records &  {:keys [mapend offset] :or {mapend nil offset nil}}]
+  (if (and mapend offset)
+    (:Operation (last (sort-by :StartDay (filter #(>= mapend (+ offset (:StartDay %) (:Duration %))) records))))
+    (:Operation (last (sort-by :StartDay records)))))
 
 (defn read-header [file]
  (with-open [r (clojure.java.io/reader file)]

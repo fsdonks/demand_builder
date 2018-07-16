@@ -1,5 +1,5 @@
 (ns demand_builder.m2mirror
-  (:require [spork.util [io :as io]]
+  (:require [spork.util [io :as io] [table :as tbl]]
             [clojure.java [io :as jio]]))
 
 ;;Sha1 hash function for byte array
@@ -71,4 +71,55 @@
 (defn mirror-m2 [m2-local m2-remote]
   (sha1-all-repos m2-local)
   (mirror-dir m2-local m2-remote))
+
+(defn create-new-manifest [dir & {:keys [outdir] :or {outdir dir}}]
+  (let [manifest-file (str (io/as-directory outdir) "manifest.txt")]
+    (when (not (.exists (java.io.File. manifest-file)))
+      (spit manifest-file "Path\tTime\n")
+      (doseq [f (pmap #(vector (clojure.string/replace (str %) dir "") (.lastModified %)) (list-all-files-recursive dir))]
+        (spit manifest-file (str (first f) "\t" (second f) "\n") :append true)))))
+
+(defn hash-files [dir]
+  (let [files (list-all-files-recursive dir)]
+    (doseq [f (filter #(or (is-filetype? (str %) "jar") (is-filetype? (str %) "pom")) files)]
+      (if (not (.exists (java.io.File. (str f ".sha1"))))
+        (sha1-file f)))))
+
+(defn diff-manif [dir manifest outdir]
+  (let [m (into [] (tbl/tabdelimited->records manifest :schema {:Path :text :Time :text}))
+        fm (zipmap (map :Path m) (map #(read-string (:Time %)) m))
+        files (map #(clojure.string/replace % dir "") (list-all-files-recursive dir))
+        file-map (zipmap files (map #(.lastModified (java.io.File. (str (jio/as-file dir) %))) files))
+        diffs (apply conj 
+                (clojure.set/difference (set file-map) (set fm))
+                (clojure.set/difference (set fm) (set file-map)))
+        updates (for [f (map first diffs)]
+                  (if (and (get fm f) (get file-map f))
+                    (if (> (get file-map f) (get fm f))
+                      (do 
+                        ;;(println "FILE ALREADY EXIST but is OLD: " f)
+                        (io/deep-copy (str (jio/as-file dir) f) (str (jio/as-file outdir) f))
+                        [f (.lastModified (java.io.File. (str (jio/as-file outdir) f)))]))
+                    (do 
+                      ;;(println "FILE DOES NOT YET EXIST: " f)
+                      (io/deep-copy (str (jio/as-file dir) f) (str (jio/as-file outdir) f))
+                      [f (.lastModified (java.io.File. (str (jio/as-file outdir) f)))])))
+        updates-map (zipmap (map first updates) (map second updates))]
+    (apply conj fm updates-map)))
+
+(defn mirror-dir [dir outdir manifest]
+  (hash-files dir)
+  (let [new-manif (diff-manif dir manifest outdir)]
+    (.delete (java.io.File. manifest))
+    (spit manifest "Path\tTime\n")
+    (doseq [m new-manif]
+      (spit manifest (str (first m) "\t" (second m) "\n") :append true))))
+
+;;To mirror reposotories:
+
+;;**) Create new-manifest of remote repository (requires copying whole repo once)
+;; - Only needs to be done once on the first time
+;;1) mirror-dir *newer-repository* output-location manifest-file
+;;2) the differences between the the newer-repo and the remote-repo will be put into the output-location folder
+;;3) copy the output-location into the remote-repo (replace exisiting files)
 

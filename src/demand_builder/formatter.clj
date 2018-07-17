@@ -85,7 +85,7 @@
 (defn read-forgefile [fc forgefile]
  (try
   (ff/merge-duration (reduce-forge (ff/any-forge->records forgefile)))
-  (catch Exception e (throw (Exception. (str "File not found for FOREGE_" fc "\n" (.getMessage e)))))))
+  (catch Exception e (throw (Exception. (str "File not found for FORGE_" fc "\n" (.getMessage e)))))))
 
 ;;Returns true when the fc string represents a scenario
 (defn scenario? [string] (= "SE" (subs string 0 2))) 
@@ -136,7 +136,8 @@
         vignette-data (read-vignette vignettefile)
         scenarios (filter scenario? (map :ForceCode map-data))               
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
-        joined-vignettes (map #(conj (first (filter-fc % map-data)) (first (filter-fc % vignette-data))) vignettes)
+        joined-vignettes (map #(for [md (filter-fc % map-data)]
+                                 (conj md (first (filter-fc % vignette-data)))) vignettes)
         joined-forges (join-forges scenarios map-data mapfile :phases phases)]
     (write-oos-vignettes mapfile map-data vignette-data)
     (filter 

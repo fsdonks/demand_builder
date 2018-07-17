@@ -1,6 +1,7 @@
 (ns demand_builder.gui
-  (:require [demand_builder [chart :as c] [formatter :as f] [extend :as ex] [phaseshifter :as ps] m4plugin]
-            [spork.util [io :as io]]
+  (:require [demand_builder [chart :as c] [formatter :as f] [extend :as ex] [phaseshifter :as ps] [m4plugin :refer :all]]
+            [spork.util [io :as io] [table :as tbl]]
+            [spork.util.excel [core :refer :all] [docjure :refer :all]]
             [seesaw core])
   (:import [java.io File FileNotFoundException]
            [javax.swing BoxLayout JFrame JFileChooser JTextArea JPanel JLabel JButton JOptionPane JTextField]
@@ -18,10 +19,11 @@
    (spork.util.stream/records->file m out)
    out))  
 
+(def del " : ")
 (defn gui->inputfile [p]
   (let [c (filter #(instance? javax.swing.JLabel %) (.getComponents p))
         vals (map #(.getText %) c)]
-    (for [v vals] (zipmap [:Path :Type :ForceCode :Sheetname] (clojure.string/split v #"<>")))))
+    (for [v vals] (zipmap [:Path :Type :ForceCode :Sheetname] (clojure.string/split v (re-pattern del))))))
 
 (defn new-row-gui [main main-panel]
   (let [f (frame :title "Add file")
@@ -30,18 +32,28 @@
         _ (.setLayout p (javax.swing.BoxLayout. p javax.swing.BoxLayout/Y_AXIS))
         add (fn [content] (.add p content))
         file (label (str (select-file)))
-        opts (listbox :model ["MAP" "CONSOLIDATED" "FORGE"])
-        fc (text "SE-???")
-        sheet (text "Sheetname")
+        opts (label (most-likely-file (.getText file)));;(listbox :model ["MAP" "CONSOLIDATED" "FORGE"])
+        fc (if (= "FORGE" (.getText opts)) (text "SE-???") (label ""))
+        sheet (let [sheets (list-sheets (.getText file))]
+                (if (= 1 (count sheets))
+                  (label (first sheets))
+                  (if (= "FORGE" (.getText opts))
+                    (if (first (filter #(= "Unit_Node_Detail" %) sheets))
+                      (label "Unit_Node_Detail")
+                      (if (first (filter #(= "SRC_By_Day" %) sheets))
+                        (label "SRC_By_Day")
+                        (map #(str % " : ") sheets))))))        
         submit (button :text "Add file")
         content [file opts fc sheet submit]]
-    (listen submit :action  (fn [e] 
-                              (.setVisible f false)
-                              (.add main-panel (label (str (text file) "<>" (selection opts) "<>" (text fc) "<>" (text sheet))))
-                              (.setVisible main true)))
+    (defn submit-file [] 
+      (.setVisible f false)
+      (.add main-panel (label (str (text file) del (text opts) del (text fc) del (text sheet))))
+      (.setVisible main true))
+    (listen submit :action  (fn [e] (submit-file)))
     (doseq [c content] (add c))
     (.add f p)
-    (-> f pack! show!)))
+    (-> f pack! show!)
+    (if (not= "FORGE" (.getText opts)) (submit-file))))
 
 (defn demand-gui []
   (let [f (frame :title "Demand Builder")

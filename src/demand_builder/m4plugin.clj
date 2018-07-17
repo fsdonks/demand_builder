@@ -2,6 +2,8 @@
   (:require [spork.util.excel [core :as ex]]
             [spork.util [io :as io]]
             [spork.util [table :as tbl]]
+            [spork.util [io :as io] [table :as tbl]]
+            [spork.util.excel [core :refer :all] [docjure :refer :all]]
             [clojure.java [io :as jio]]
             [demand_builder.formatter :as formatter]))
 
@@ -72,7 +74,7 @@
     (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
 
 ;;Reads the first line of a tab delimited text file
-(defn read-header [file]
+(defn read-header-txt [file]
   (with-open [r (clojure.java.io/reader file)]
     (clojure.string/split (first (line-seq r)) #"\t")))
 
@@ -97,7 +99,7 @@
 ;;Will replace header of text file created from exel file with expected names for columns (using header map)
 ;;To add an additional case where names may be different, just add the given column name to header-map with key of expected value
 (defn fix-header [file]
-  (let [header (read-header file)
+  (let [header (read-header-txt file)
         fixed-header (resolve-header header)
         newfile (str file "-temp")
         new-header-line (str (apply str (map #(str % "\t") fixed-header)) "\n")]
@@ -142,4 +144,143 @@
   (let [_ (setup-directory input-file)
         root (io/as-directory (str (clojure.string/replace input-file (io/fname input-file) "") outputdir))]
     (formatter/root->demandfile root)))
+
+(defn list-sheets [exfile]
+  (map sheet-name (sheet-seq (load-workbook exfile))))
+
+(defn get-sheet-by-name [exfile sheetname]
+  (first (filter #(= sheetname (sheet-name %)) (sheet-seq (load-workbook exfile)))))
+
+(defn read-sheet [exfile sheetname & {:keys [skip] :or {skip nil}}]
+  (let [sheet (get-sheet-by-name exfile sheetname)
+        opts (if skip (assoc +default-options+ :skip skip) +default-options+)
+        data (sheet->table sheet opts)
+        header (:fields data)
+        cols (:columns data)]
+    (for [i (range (count header))]
+      (zipmap (map keyword header) (map #(nth % i) cols)))))
+
+(defn read-sheet [exfile sheetname]
+  (sheet->table (get-sheet-by-name exfile sheetname)))
+
+(defn file->record [exfile sheetname]
+ (into [] (tbl/tabdelimited->records (tbl/table->tabdelimited (read-sheet exfile sheetname)))))
+
+(defn sheet->records [exfile sheetname]
+  (into [] (-> (sheet->table (get-sheet-by-name exfile sheetname))
+               (tbl/table->tabdelimited)
+               (tbl/tabdelimited->records))))
+
+(defn read-header [exfile sheetname]
+  (:fields (sheet->table (get-sheet-by-name exfile sheetname))))
+
+(def und-header   ["UIN Quantity" "Time Period Begin Day" "Time Period Days" "Subphase" "SRC Strength" "SRC" "Title"])
+(def vcons-header ["ForceCode" "SRC2" "SRC" "Title" "Strength" "Quantity" "Title10_32"])
+(def map-header   ["ForceCode" "TAA 20-24 ISC Scenarios and Vignettes" "BCT Original" "BCT New" "StartDay" "Duration" "BCT Quantity"])
+
+(def headers {und-header "FORGE" vcons-header "CONSOLIDATED" map-header "MAP"})
+
+(defn header-count [header comp]
+  (count (filter #(contains? (set header) %) comp)))
+
+(defn most-likely-file [exfile]
+  (let [sheets (set (list-sheets exfile))]
+    (if (or (contains? sheets "Unit_Node_Detail") (contains? sheets "SRC_By_Day"))
+      "FORGE"
+      (let [h (read-header exfile (first sheets))
+            counts (zipmap (map #(header-count % h) (keys headers)) (vals headers))]
+        (get counts (apply max (keys counts)))))))
+        
+(defn possilbe-scenarios [mapfile sheet]
+  (filter #(= "SE-" (apply str (take 3 (str %)))) (apply concat (:columns (read-sheet mapfile sheet)))))
+
+(defn list-excel-files [root]
+  (filter #(re-find #".xlsx" %) (map str (.listFiles (java.io.File. root)))))
+
+(defn find-file-type [root type]
+  (filter #(= type (most-likely-file %)) (list-excel-files root)))
+
+(defn forge-time [forgefile]
+  (let [s (first (filter #(= "Unit_Node_Detail" %) (list-sheets ff)))
+        r (sheet->records forgefile s)
+        min-start (apply min (map (keyword "Time Period Begin Day") r))
+        max-end (apply max (map #(+ (get % (keyword "Time Period Begin Day")) (get % (keyword "Time Period Days"))) r))]
+    {:start min-start :end max-end :duration (- max-end min-start)}))
+    
+(defn map->scenario-times [mapfile]
+  (let [r (filter #(= "SE-" (apply str (take 3 (str (:ForceCode %))))) 
+            (sheet->records mapfile (first (list-sheets mapfile))))]
+    (for [i r]
+      {:fc (:ForceCode i) :start (:StartDay i) :duration (:Duration i)})))
+
+(defn fc-weight [title fc]
+  (let [st (set title) sfc (set fc)]
+    (hash-map fc (count (clojure.set/union (clojure.set/difference st sfc) (clojure.set/difference sfc st))))))
+
+;;Weight the liklihood of each forge file having fc 
+;; based on duration listed in map (difference from forge) and percentage of filename matching
+(defn get-fc-weight [forgefile fc forge-time map-times]
+  (let [mt (first (filter #(= fc (:fc %)) map-times))
+        dm (- (:duration mt) (:duration forge-time))]
+    (+ (get (fc-weight forgefile fc) fc) (* dm dm))))
+
+(defn closest-fc [forgefile forge-time fcs map-times]
+  (let [m (zipmap (map #(get-fc-weight forgefile % forge-time map-times) fcs) fcs)]
+    {forgefile (get m (apply min (keys m)))}))
+
+(defn forges->fc [forges forge-times map-times fcs  r]
+  (if (pos? (count forges))
+    (let [ff (first forges)
+          fc (closest-fc ff (get forge-times ff) fcs map-times)]
+      (forges->fc
+        (drop 1 forges)
+        (dissoc forge-times ff)
+        (filter #(not= (get fc ff) (str (:fc %))) map-times)
+        (filter #(not= (get fc ff) %) fcs)
+        (into r fc)))
+    r))
+
+(defn match-forge-fc [root]
+  (let [mapfile (first (find-file-type root "MAP"))
+        forges (find-file-type root "FORGE")
+        map-times (map->scenario-times mapfile)
+        forge-times (zipmap forges (map forge-time forges))
+        fcs (map :fc map-times)
+        mapped-fcs (forges->fc forges forge-times map-times fcs [])]
+    (zipmap (map first mapped-fcs) (map second mapped-fcs))))
+
+(defn get-probable-sheet [file]
+  (let [sheets (list-sheets file)]
+    (if (= 1 (count sheets)) ;;Mapping and Consolidated files should only have a single sheet
+      (first sheets)
+      (if (first (filter #(= "Unit_Node_Detail" %) sheets))
+        "Unit_Node_Detail"
+        (if (first (filter #(= "SRC_By_Day" %) sheets))
+          "SRC_By_Day"
+          ;;Either the file is FORGE and attempts to use Unit_Node_Detail, and uses SRC_By_Day only when it does not exist
+          ;;If the file is not a FORGE file and has more than one sheet, throw error asking for user input
+          (throw (ex-info 
+                   "\tCould not automatically determine which sheet to use.\n
+                   User input required for generating input map file." {:input 42})))))))
+
+(defn root->inputmap [root]
+  (let [output (str (io/as-directory root) "input-map.txt")
+        files (list-excel-files root)
+        forge-fcs (match-forge-fc root)
+        lines (concat ["Path\tType\tForceCode\tSheetname\n"]
+                (for [f files :let [type (most-likely-file f)]]
+                  (str f "\t" type "\t" (if (= "FORGE" type) (get forge-fcs f) "none") "\t" (get-probable-sheet f) "\n")))]
+    (.delete (java.io.File. output))
+    (doseq [i lines]
+      (spit output i :append true))
+    output))
+     
+(defn root->demand-file [root]
+  (inputfile->demand (root->inputmap root)))
+
+(def ff "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Scenario-99-TAA-20-24.xlsx")
+(def mf "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Vignette Mapping - TAA 20-24.xlsx")
+(def vf "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Vignette Consolidated - TAA 20-24.xlsx")
+(def root "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\")
+
 

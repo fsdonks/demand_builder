@@ -1,9 +1,6 @@
 (ns demand_builder.m4plugin
-  (:require [spork.util.excel [core :as ex]]
-            [spork.util [io :as io]]
-            [spork.util [table :as tbl]]
-            [spork.util [io :as io] [table :as tbl]]
-            [spork.util.excel [core :refer :all] [docjure :refer :all]]
+  (:require [spork.util [io :as io] [table :as tbl]]
+            [spork.util.excel [core :as ex] [docjure :as doc]]
             [clojure.java [io :as jio]]
             [demand_builder.formatter :as formatter]))
 
@@ -28,44 +25,39 @@
 (defn forge-filename->fc [forgefile input-map]
   (:ForceCode (first (filter #(= forgefile (:Path %)) input-map))))
 
+;;map of seq of rows of data in sheet with sheetname as key and data as val, where p is file path
+(defn sheet-rows [p & {:keys [sheets]}]
+  (let [wb (ex/xlsx->wb p)]
+    (->> (for [s  (doc/sheet-seq wb)
+               :when (sheets (doc/sheet-name s))]
+           [(doc/sheet-name s) s])
+         (into {}))))
 
-(in-ns 'spork.util.excel.core)
-;; ========== DON'T REUSE ==========
-(defn tabular-region
-  ([sheet] (tabular-region sheet +default-options+))
-  ([sheet options]
-   (let [{:keys [skip read-cell ignore-dates?]
-          :or   {skip          0
-                 read-cell     doc/read-cell
-                 ignore-dates? true}} options
-         read-cell  (as-cell-reader read-cell)
-         fields     (truncate-row (row->vec (nth (contiguous-rows sheet) skip)))
-         fieldcount (count fields)
-         pooled     (s/->string-pool 100 1000)
-         read-cell-pooled (fn [cl]
-                            (let [res (read-cell cl)]
-                              (if (string? res) (pooled res) res)))]
-     (binding [doc/*date-checking* (not ignore-dates?)]
-       (->> (contiguous-rows sheet)
-            ;;(drop skip) - need to keep the skiped rows, they still contain data for formatting
-            ;;In this specific case, we need the data from the first row,
-            ;;but we start counting the tabular region form the second
-            ;;The first row is the phase timinings (non-tabular)
-            ;;The second row is the real header
-            (map (fn [r]
-                   (let [r (row->vec r nil read-cell-pooled)
-                         rcount (count r)]
-                     (cond (= rcount fieldcount) r
-                       (> rcount fieldcount) (subvec r 0 fieldcount)
-                       (< rcount fieldcount) (into r (take (- fieldcount rcount) 
-                                                       (repeat nil)))))))
-            (take-while (complement empty-row?))))))) ;;we infer a blank row as the end of the table.
-(in-ns 'demand_builder.m4plugin)
+;;gets the nth row of from excel file in sheet sheet-name
+(defn get-nth-row [xlsx sheet-name n]
+  (-> xlsx
+      (sheet-rows :sheets #{sheet-name})
+      (get sheet-name)
+      ex/contiguous-rows
+      (nth n)
+      ex/row->vec))
 
 ;;Option to use non-tabular SRC_by_Day sheet from FORGE in event more specific phase timing is needed for corner cases
 (defn forge->non-tab [forgefile dir sheetname]
-  (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [sheetname] :options {:default {:skip 1}}))
+   (let [phases (get-nth-row forgefile sheetname 0)
+         data (get (ex/xlsx->tables forgefile :sheetnames [sheetname] :options {:default {:skip 1}}) sheetname)
+         fields (:fields data)
+         outfile (str (io/as-directory dir) sheetname ".txt")
+         line->tsv (fn [line] (str (apply str (for [v line] (str v "\t"))) "\n"))]
+    (when (io/fexists? outfile)
+      (clojure.java.io/delete-file outfile))
+    (spit outfile (line->tsv phases) :append true)
+    (spit outfile (line->tsv fields) :append true)
+    (doseq [line (for [i (range (count (first (:columns data))))] (map #(nth % i) (:columns data)))]
+      (spit outfile (line->tsv line) :append true))))
+  ;;(ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [sheetname] :options {:default {:skip 1}}))
 
+;;Reads FORGE data from either the Unit_Node_Detail sheet or SRC_By_Day sheet
 (defn forgexlsx->tsv [forgefile dir input-map]
   (let [p (first (filter #(= forgefile (:Path %)) input-map))]
     (if (= (:Sheetname p) "Unit_Node_Detail")
@@ -116,6 +108,7 @@
 (defn find-map-file [input-map]
   (:Path (first (filter #(= "MAP" (:Type %)) input-map))))
 
+;;Formatts and moves files into correct location to be able to run demand builder from root
 (defn setup-dir [in-map root]
   (let [inputs (io/as-directory (str root outputdir))
         find-file (fn [type] (filter #(= type (:Type %)) in-map))
@@ -145,44 +138,42 @@
         root (io/as-directory (str (clojure.string/replace input-file (io/fname input-file) "") outputdir))]
     (formatter/root->demandfile root)))
 
+;;List the sheet names in an excel file
 (defn list-sheets [exfile]
-  (map sheet-name (sheet-seq (load-workbook exfile))))
+  (map doc/sheet-name (doc/sheet-seq (doc/load-workbook exfile))))
 
+;;returns the sheet object of the excel file with sheet sheetname
 (defn get-sheet-by-name [exfile sheetname]
-  (first (filter #(= sheetname (sheet-name %)) (sheet-seq (load-workbook exfile)))))
+  (first (filter #(= sheetname (doc/sheet-name %)) (doc/sheet-seq (doc/load-workbook exfile)))))
 
-(defn read-sheet [exfile sheetname & {:keys [skip] :or {skip nil}}]
-  (let [sheet (get-sheet-by-name exfile sheetname)
-        opts (if skip (assoc +default-options+ :skip skip) +default-options+)
-        data (sheet->table sheet opts)
-        header (:fields data)
-        cols (:columns data)]
-    (for [i (range (count header))]
-      (zipmap (map keyword header) (map #(nth % i) cols)))))
-
+;;reads the sheet data into table from excel file using sheet sheetname
 (defn read-sheet [exfile sheetname]
-  (sheet->table (get-sheet-by-name exfile sheetname)))
+  (ex/sheet->table (get-sheet-by-name exfile sheetname)))
 
-(defn file->record [exfile sheetname]
- (into [] (tbl/tabdelimited->records (tbl/table->tabdelimited (read-sheet exfile sheetname)))))
-
+;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
-  (into [] (-> (sheet->table (get-sheet-by-name exfile sheetname))
+  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 
+;;reads the fields of an exfile sheet
 (defn read-header [exfile sheetname]
-  (:fields (sheet->table (get-sheet-by-name exfile sheetname))))
+  (:fields (ex/sheet->table (get-sheet-by-name exfile sheetname))))
 
+;;Expected headers for Unit_Node_Detail, Vignette consolidated, and Vignette mapping files
 (def und-header   ["UIN Quantity" "Time Period Begin Day" "Time Period Days" "Subphase" "SRC Strength" "SRC" "Title"])
 (def vcons-header ["ForceCode" "SRC2" "SRC" "Title" "Strength" "Quantity" "Title10_32"])
 (def map-header   ["ForceCode" "TAA 20-24 ISC Scenarios and Vignettes" "BCT Original" "BCT New" "StartDay" "Duration" "BCT Quantity"])
 
+;;Map of headers with key as the file type
 (def headers {und-header "FORGE" vcons-header "CONSOLIDATED" map-header "MAP"})
 
+;;Counts the number of fields in comp that exist in some each header
 (defn header-count [header comp]
-  (count (filter #(contains? (set header) %) comp)))
+  (let [hs (set header)]
+    (count (filter #(contains? hs %) comp))))
 
+;;Uses file header or sheet names to try to determine the file type [FORGE, MAP, or CONSOLIDATED]
 (defn most-likely-file [exfile]
   (let [sheets (set (list-sheets exfile))]
     (if (or (contains? sheets "Unit_Node_Detail") (contains? sheets "SRC_By_Day"))
@@ -190,29 +181,33 @@
       (let [h (read-header exfile (first sheets))
             counts (zipmap (map #(header-count % h) (keys headers)) (vals headers))]
         (get counts (apply max (keys counts)))))))
-        
-(defn possilbe-scenarios [mapfile sheet]
-  (filter #(= "SE-" (apply str (take 3 (str %)))) (apply concat (:columns (read-sheet mapfile sheet)))))
 
+;;List all .xlsx files located in root
 (defn list-excel-files [root]
-  (filter #(re-find #".xlsx" %) (map str (.listFiles (java.io.File. root)))))
+  (filter #(re-find #".xlsx" %) (map str (io/list-files (io/file root)))))
 
+;;List all files of file type in root [FORGE, MAP, or CONSOLIDATED]
 (defn find-file-type [root type]
   (filter #(= type (most-likely-file %)) (list-excel-files root)))
 
+;;Reads the forgefile and determines the forges start, end, and duration times
 (defn forge-time [forgefile]
-  (let [s (first (filter #(= "Unit_Node_Detail" %) (list-sheets ff)))
+  (let [s (first (filter #(= "Unit_Node_Detail" %) (list-sheets forgefile)))
         r (sheet->records forgefile s)
         min-start (apply min (map (keyword "Time Period Begin Day") r))
         max-end (apply max (map #(+ (get % (keyword "Time Period Begin Day")) (get % (keyword "Time Period Days"))) r))]
     {:start min-start :end max-end :duration (- max-end min-start)}))
-    
+
+;;Reads the map files and determines the start and duration of each event
 (defn map->scenario-times [mapfile]
   (let [r (filter #(= "SE-" (apply str (take 3 (str (:ForceCode %))))) 
             (sheet->records mapfile (first (list-sheets mapfile))))]
     (for [i r]
       {:fc (:ForceCode i) :start (:StartDay i) :duration (:Duration i)})))
 
+;;Numeric value to used to try to determine which force code a FORGE file is associated with
+;;The larger the number, the less likily the FORGE corresponds to that fc
+;;Checks the difference between the ForceCode and file name
 (defn fc-weight [title fc]
   (let [st (set title) sfc (set fc)]
     (hash-map fc (count (clojure.set/union (clojure.set/difference st sfc) (clojure.set/difference sfc st))))))
@@ -240,6 +235,7 @@
         (into r fc)))
     r))
 
+;;For each forge in root, tries to match the most likely ForceCode form Map using filename and duration data
 (defn match-forge-fc [root]
   (let [mapfile (first (find-file-type root "MAP"))
         forges (find-file-type root "FORGE")
@@ -249,32 +245,34 @@
         mapped-fcs (forges->fc forges forge-times map-times fcs [])]
     (zipmap (map first mapped-fcs) (map second mapped-fcs))))
 
+;;Attempts to determine which sheet to use from excel file
+;;Throws exception asking to user input if can't be determined from metadata
+;;Returns string of sheetname
 (defn get-probable-sheet [file]
   (let [sheets (list-sheets file)]
-    (if (= 1 (count sheets)) ;;Mapping and Consolidated files should only have a single sheet
-      (first sheets)
-      (if (first (filter #(= "Unit_Node_Detail" %) sheets))
-        "Unit_Node_Detail"
-        (if (first (filter #(= "SRC_By_Day" %) sheets))
-          "SRC_By_Day"
-          ;;Either the file is FORGE and attempts to use Unit_Node_Detail, and uses SRC_By_Day only when it does not exist
-          ;;If the file is not a FORGE file and has more than one sheet, throw error asking for user input
-          (throw (ex-info 
-                   "\tCould not automatically determine which sheet to use.\n
-                   User input required for generating input map file." {:input 42})))))))
+    (cond 
+      (= 1 (count sheets)) (first sheets)
+      (some #{"Unit_Node_Detail"} sheets) "Unit_Node_Detail"
+      (some #{"SRC_By_Day"} sheets) "SRC_By_Day"
+      ;Either the file is FORGE and attempts to use Unit_Node_Detail, and uses SRC_By_Day only when it does not exist
+      ;;If the file is not a FORGE file and has more than one sheet, throw error asking for user input
+      true (throw (ex-info "\tCould not automatically determine which sheet to user.\n
+                    User unput require for generating input map file." {:input 42})))))
 
+;;Creates file with files needed for demand, their path, file type, force-code (when FORGE, otherwise empty), and sheetname
 (defn root->inputmap [root]
   (let [output (str (io/as-directory root) "input-map.txt")
         files (list-excel-files root)
-        forge-fcs (match-forge-fc root)
-        lines (concat ["Path\tType\tForceCode\tSheetname\n"]
+        forge-fcs (match-forge-fc root)]
+    (when (io/fexists? output)
+      (clojure.java.io/delete-file output))
+    (doseq [i (concat ["Path\tType\tForceCode\tSheetname\n"]
                 (for [f files :let [type (most-likely-file f)]]
                   (str f "\t" type "\t" (if (= "FORGE" type) (get forge-fcs f) "none") "\t" (get-probable-sheet f) "\n")))]
-    (.delete (java.io.File. output))
-    (doseq [i lines]
       (spit output i :append true))
     output))
-     
+
+;;Gets file paths and meta data from inputmap, converts inputs to txt files, then runs demand builder formatter
 (defn root->demand-file [root]
   (inputfile->demand (root->inputmap root)))
 

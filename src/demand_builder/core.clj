@@ -8,7 +8,7 @@
            [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
 
 
-(set! *warn-on-reflection* true)
+(set! *warn-on-reflection* false)
 ;; ============================================================================
 ;; ============================================================================
 ;A close operation of 3 will kill my repl, but we might want it for the uberjar.
@@ -584,7 +584,7 @@
   (if expand
     (apply max (map #(+ (read-num (:start %)) (read-num (:duration %))) (:times (get vmap (:force-code f)))))
     (dec (+ (last (map #(read-num (:start %)) (:times (get vmap (:force-code f)))))
-       (apply max (map #(+ (:start %) (:duration %)) (:times f)))))))
+          (apply max (map #(+ (:start %) (:duration %)) (:times f)))))))
 
 (defn forge-end-day
   "Given forge data (fd), returns the last day of the file."
@@ -745,11 +745,16 @@ Creates demand files for each path.
 
 When no argument passed in, opens GUI to select path/paths (can select multiple paths)
 "
+(comment
+  (defn -main [& args]
+    (binding [*closeon* 3]
+      (if (nil? args)
+       (->demand-file)
+       (->demand-file args)))))
+
+(require 'demand_builder.gui)
 (defn -main [& args]
-  (binding [*closeon* 3]
-    (if (nil? args)
-     (->demand-file)
-     (->demand-file args))))
+  (demand_builder.gui/main-gui))
 
 
 

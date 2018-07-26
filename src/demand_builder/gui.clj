@@ -4,7 +4,7 @@
             [seesaw core]
             [clojure.java [io :as jio]])
   (:import [java.io File FileNotFoundException]
-           [javax.swing BoxLayout JPanel JTextField])
+           [javax.swing BoxLayout JPanel JTextField JTextArea])
   (:use [seesaw core chooser]))
 
 (native!)
@@ -22,6 +22,24 @@
 (defn file->pdir [f] (if (.isDirectory f) (str f) (io/as-directory (.getParent f)))) ;;If file is directory, return directory, otherwise, return parent of file
 (defn file-type [root type] (filter #(clojure.string/includes? % type) (map str (io/list-files root))))
 (defn is-scenario? [v] (= "SE" (apply str (take 2 v))))
+
+(defn text-area [txt & {:keys [x y] :or {x 600 y 600}}]
+  (let [t (JTextArea. txt)]
+    (do (.setRows t 100) (.setSize t x y) (.setLineWrap t true)) t))
+
+;;Creates gui with txt (txt = .getStackTrace of exception)
+(defn error-gui [txt]
+  (let [f (frame :title "Error StackTrace") p (y-panel) t (text-area txt)]
+    (do (.add p t) (show-frame f p :x 500 :y 200))))
+
+;;Returns button that calls function f
+;;Creates error gui for any error messages. Re-throws exceptions
+(defn fn->button [f title] 
+  (let [b (button :text title)]
+    (listen b :action (fn [e] (try (f) 
+                                (catch Exception e
+                                  (do (error-gui (.getMessage e)) (throw (ex-info (.getMessage e) {:input 42})))))))
+    b))
 
 (defn y-panel [] (let [p (javax.swing.JPanel.)] (.setLayout p (javax.swing.BoxLayout. p javax.swing.BoxLayout/Y_AXIS))  p))
 (defn text-field [& {:keys [size] :or {size 7}}] (let [tf (JTextField.)] (.setColumns tf size) tf))
@@ -65,6 +83,15 @@
                               (.setVisible f false)) "Run"))
     (show-frame f main :x 600 :y 300)))
 
+(defn print-phases [f]
+  (let [phases (ps/demands->phases (ps/read-demand-file f) (ps/read-header f))]
+    (for [p (filter is-scenario? (keys phases)) :let [r (get phases p)]]
+      (str "\n" (str p "\tStart\tEnd") "\n" (apply str (map #(str (second %) "\t" (nth % 2) "\t" (+ (nth % 2) (nth % 3)) "\n") r))))))
+
+(defn phases->gui [file]
+  (let [f (frame :title "Phase Timings") p (y-panel) t (text-area (apply str (print-phases file)))] 
+    (do (.add p t) (show-frame f p :x 220 :y 300))))
+
 (defn phase-shifter-gui [root]
   (let [file (str root (spork.util.io/fname root) "_DEMAND.txt")
         data (c/file->map-list file)
@@ -80,6 +107,7 @@
     (doseq [p panels] (.add mainpanel p) (.add frame mainpanel))
     (.add header (label (str "<html>" (data->str scenarios "Scenarios: ") "<br>" (str "<br>" (data->str phases "Phases: ")))))
     (.add mainpanel header)
+    (.add mainpanel (fn->button (fn [] (phases->gui file)) "Phase Timings"))
     (.add mainpanel (fn->button (fn [] (let [lines (doall (for [o objs] [(.getText (:scenario o)) (.getText (:phase o)) 
                                                                          (let [t (.getText (:change o))] (try (c/read-num t) (catch Exception e t)))]))]
                                          (spit (str root "changes.txt") (reduce str (map #(str (first %) "\t" (second %) "\t" (last %) "\n") (filter #(not= "" (first %)) lines))))
@@ -95,7 +123,7 @@
         panels (zipmap [:groupp :startp :durationp :startdelta :durationdelta] (repeat 5 (JPanel.)))
         times (ex/get-times filename "DemandGroup")
         objs (doall (for [i times :let [c (vec (zipmap (keys panels)
-                                                 (flatten [(map #(label (str %)) ((juxt first second last) i)) (text-field )(text-field)])))]]
+                                                 (flatten [(map #(label (str %)) ((juxt first second last) i)) (text-field ) (text-field)])))]]
                       (do (doall (map #(.add ((first %) panels) (second %)) c))
                         (zipmap (map first c) (map second c)))))]
     (doseq [p (vals panels)] (.add mainpanel p))
@@ -111,12 +139,12 @@
 ;;Buttons -> first is fn second is title
 ;;Set Working Dir, Set Existing Dir, Shift Phases, Shift DemandGroup, Sand Chart 
 (defn ->buttons [lbl]
-  (map #(fn->button (first %) (second %))
-    [[#(let [root (file-choice->root (select-file))]
+  (map #(fn->button (first %) (second %)) 
+    [[#(let [root (file-choice->root (choose-file))]
          (when (io/fexists? root)
-           (.setText lbl (root->outputdir root)) (confirm-input-map root))) "Set Working Directory"]
+           (.setText lbl (root->outputdir root)) (confirm-input-map root)))  "Set Working Directory"]
      [#(let [f (choose-file)] (when (pos? (count (apply concat (vals (inputs-used (file->pdir f))))))
-                                (.setText lbl (file->pdir f)))) "Set Existing Demand"]
+                               (.setText lbl (file->pdir f)))) "Set Existing Demand"]
      [#(phase-shifter-gui (.getText lbl)) "Shift Phases"]
      [#(extender-gui (outdir->demandfile (.getText lbl))) "Shift DemandGroup"]
      [#(c/demand-file->sand-charts (outdir->demandfile (.getText lbl)) :view true :save false) "Sand Chart"]]))
@@ -126,5 +154,5 @@
         p (y-panel)
         rdl (label "No working directory set")]
     (doseq [c (flatten (list rdl (->buttons rdl)))] (.add p c))
-    (show-frame f p :x 350 :y 200)))
+    (show-frame f p :x 366 :y 200)))
 

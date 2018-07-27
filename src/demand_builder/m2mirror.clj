@@ -44,7 +44,10 @@
 
 ;;Hashes all files in directory (all jar or pom files)
 (defn sha1-all-repos [root]
-  (let [files (filter #(or (is-filetype? % "jar") (is-filetype? % "pom")) (map str (list-all-files-recursive root)))]
+  (let [files (filter #(and (clojure.string/includes? % "-SNAPSHOT")
+                            (or (is-filetype? % "jar") (is-filetype? % "pom"))
+                            (not (.exists (io/file (str % ".sha1")))))
+                      (map str (list-all-files-recursive root)))]
     (println (count (into [] (pmap #(sha1-file %) files))) "files hashed")))
 
 ;;Checks if the new-file exist and if it does, is it older then the current file
@@ -115,6 +118,9 @@
     (doseq [m new-manif]
       (spit manifest (str (first m) "\t" (second m) "\n") :append true))))
 
+(def network-m2 "K:/Divisions/FS/dev/jars/diffs/")
+(def manifest "K:/Divisions/FS/dev/jars/manifest.txt")
+(def dir "~/.m2/")
 ;;To mirror reposotories:
 
 ;;**) Create new-manifest of remote repository (requires copying whole repo once)

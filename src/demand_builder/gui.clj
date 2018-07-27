@@ -45,6 +45,7 @@
 
 (defn hide [^javax.swing.JFrame f] (.setVisible f false))
 
+
 ;;Creates gui with txt (txt = .getStackTrace of exception)
 (defn error-gui [txt]
   (let [f (frame :title "Error StackTrace") p (y-panel) t (text-area txt)]

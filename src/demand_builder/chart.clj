@@ -97,9 +97,13 @@
         chart (if (not= nil supplyfile)
                 (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
                       strmap (into {} supply)]
-                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 0 (get strmap (:SRC %))))
-                    :ordering ordering :color-map color-map :schema fromSupply :view view :save save))
-                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 0 (get % :Strength))) 
+                  ;;There might be a demand SRC that doesn't exist in the supply.  Leave that up to the user to reconcile.
+                  ;;For now, I don't expect to be using the supply file to pull strengths.
+                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (get strmap (:SRC %) 1))
+                                     :ordering ordering :color-map color-map :schema fromSupply :view view :save save))
+                ;;If the strength column exists but there is no strength value for a record, this will throw an error,
+                ;;which is okay.  This will force the user to specify a strength for every record.
+                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (get % :Strength 1)) 
                   :ordering ordering :color-map color-map :schema fromDemand :view view :save save))]
     chart))
 ;;; ===============================================================================

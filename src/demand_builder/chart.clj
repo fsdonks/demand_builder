@@ -97,9 +97,9 @@
         chart (if (not= nil supplyfile)
                 (let [supply (set (for [m (file->map-list supplyfile)] [(:SRC m) (:Strength m)]))
                       strmap (into {} supply)]
-                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get strmap (:SRC %) 1)))
+                  (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 0 (get strmap (:SRC %))))
                     :ordering ordering :color-map color-map :schema fromSupply :view view :save save))
-                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 1 (get % :Strength 1))) 
+                (file->sand-charts demandfile "DemandGroup" startfn endfn #(* (:Quantity %) (max 0 (get % :Strength))) 
                   :ordering ordering :color-map color-map :schema fromDemand :view view :save save))]
     chart))
 ;;; ===============================================================================

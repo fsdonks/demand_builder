@@ -165,7 +165,7 @@
 
 ;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
-  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname) (assoc ex/+default-options+ :read-cell #(ex/replace-newlines % 0)))
+  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 

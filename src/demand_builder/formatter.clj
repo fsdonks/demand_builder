@@ -43,7 +43,9 @@
 ;; **This can either increase or decrease the initial duration
 ;;Returns a list of maps (of FORGE data) that has been syncronized to end on the same day as what is listed in the map file.
 (defn sync-map [forgerecords lastphase mapend & {:keys [phases fc] :or {phases nil fc nil}}]
-  (let [lastday (apply max (map #(+ (:StartDay %) (:Duration %)) (filter #(= lastphase (:Operation %)) forgerecords)))
+  (let [lasttimes (map #(+ (:StartDay %) (:Duration %)) (filter #(= lastphase (:Operation %)) forgerecords))
+        forgeduration (- (apply max (map #(+ (:StartDay %) (:Duration %)) forgerecords)) (apply min (map :StartDay forgerecords)))
+        lastday (if (pos? (count lasttimes)) (apply max lasttimes) forgeduration)
         lastrecs (if (< mapend lastday) (shorten-recs forgerecords mapend lastphase) (extend-recs forgerecords mapend lastphase))
         adjusted (map #(assoc % :Duration (+ (:Duration %) (- mapend (:StartDay %) (:Duration %)))) lastrecs)
         _ (doseq [r (zipmap lastrecs adjusted)]
@@ -97,14 +99,18 @@
 (defn scenario-mapend [fc map-data]
   (let [m (first (filter-fc fc map-data))] (+ (:StartDay m) (:Duration m))))
 
+(defn scenario-duration [fc map-data] (:Duration (first (filter-fc fc map-data))))
+
 ;;Gets the scenario path given the FC and mapfile (file should exist in same directory as mapfile)
 (defn forgepath [fc mapfile] (clojure.string/replace mapfile (spork.util.io/fname mapfile) (str "FORGE_" fc ".txt")))
 
 ;;Formats forges and syncs timing to map
 (defn join-forges [scenarios map-data mapfile & {:keys [phases] :or {phases nil}}]
   (for [forge scenarios
-        :let [mapend (scenario-mapend forge map-data)
+        :let [mapstart (scenario-offset forge map-data)
+              mapduration (scenario-duration forge map-data)
               forgedata (read-forgefile forge (forgepath forge mapfile))
+              mapend (if (pos? mapduration) (+ mapstart mapduration) (dec (+ mapstart (apply max (map #(+ (:StartDay %) (:Duration %)) forgedata)))))
               phase-info (filter #(= forge (:FC %)) phases)
               min-start (if (pos? (count phase-info))
                           (:Start (first (sort-by #(:Start %) phase-info)))

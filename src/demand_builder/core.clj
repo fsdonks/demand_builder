@@ -8,7 +8,7 @@
            [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
 
 
-(set! *warn-on-reflection* false)
+(set! *warn-on-reflection* true)
 ;; ============================================================================
 ;; ============================================================================
 ;A close operation of 3 will kill my repl, but we might want it for the uberjar.
@@ -754,7 +754,7 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
 
 (require 'demand_builder.gui)
 (defn -main [& args]
-  (demand_builder.gui/main-gui))
+  (demand_builder.gui/main-gui :exit true))
 
 
 

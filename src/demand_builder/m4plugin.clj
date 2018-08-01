@@ -108,6 +108,17 @@
 (defn find-map-file [input-map]
   (:Path (first (filter #(= "MAP" (:Type %)) input-map))))
 
+(defn mapfile->table [mapfile sheetname]
+  (let [data (get (ex/xlsx->tables mapfile :sheetnames [sheetname]) sheetname)
+        duration-index (get (zipmap (:fields data) (range (count (:fields data)))) "Duration")]
+    (tbl/make-table (:fields data) (update-in (:columns data) [duration-index] #(vec (map (fn [x] (if (not x) -1 x)) %))))))
+
+;;Reads mapfile, replaces missing durations with -1 (will be updated in later formatter functions)
+(defn read-mapfile [mapfile sheetname]
+  (into [] (-> (mapfile->table mapfile sheetname)
+               (tbl/table->tabdelimited)
+               (tbl/tabdelimited->records))))
+
 ;;Formatts and moves files into correct location to be able to run demand builder from root
 (defn setup-dir [in-map root]
   (let [inputs (io/as-directory (str root outputdir))
@@ -116,7 +127,9 @@
         vcons (first (find-file "CONSOLIDATED"))
         forges (map :Path (find-file "FORGE"))
         _ (io/make-folders! inputs)
-        _ (ex/xlsx->tabdelimited (:Path vmap) :rootdir inputs)
+        _ (io/hock (io/relative-path inputs [(str (:Sheetname vmap) ".txt")])
+            (tbl/table->tabdelimited (mapfile->table (:Path vmap) (:Sheetname vmap))))
+        ;_ (ex/xlsx->tabdelimited (:Path vmap) :rootdir inputs)
         _ (ex/xlsx->tabdelimited (:Path vcons) :rootdir inputs)
         _ (doseq [f forges] (forgexlsx->tsv f (io/as-directory (str root outputdir)) in-map))
         new-map (str (io/as-directory (str root outputdir)) (:Sheetname vmap) ".txt")
@@ -152,7 +165,7 @@
 
 ;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
-  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
+  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname) (assoc ex/+default-options+ :read-cell #(ex/replace-newlines % 0)))
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 
@@ -201,7 +214,7 @@
 ;;Reads the map files and determines the start and duration of each event
 (defn map->scenario-times [mapfile]
   (let [r (filter #(= "SE-" (apply str (take 3 (str (:ForceCode %))))) 
-            (sheet->records mapfile (first (list-sheets mapfile))))]
+            (read-mapfile mapfile (first (list-sheets mapfile))))]
     (for [i r]
       {:fc (:ForceCode i) :start (:StartDay i) :duration (:Duration i)})))
 
@@ -275,10 +288,4 @@
 ;;Gets file paths and meta data from inputmap, converts inputs to txt files, then runs demand builder formatter
 (defn root->demand-file [root]
   (inputfile->demand (root->inputmap root)))
-
-(def ff "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Scenario-99-TAA-20-24.xlsx")
-(def mf "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Vignette Mapping - TAA 20-24.xlsx")
-(def vf "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Vignette Consolidated - TAA 20-24.xlsx")
-(def root "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\")
-
 

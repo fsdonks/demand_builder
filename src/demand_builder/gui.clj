@@ -45,7 +45,6 @@
 
 (defn hide [^javax.swing.JFrame f] (.setVisible f false))
 
-
 ;;Creates gui with txt (txt = .getStackTrace of exception)
 (defn error-gui [txt]
   (let [f (frame :title "Error StackTrace") p (y-panel) t (text-area txt)]
@@ -163,8 +162,9 @@
      [#(extender-gui (outdir->demandfile (get-text lbl))) "Shift DemandGroup"]
      [#(c/demand-file->sand-charts (outdir->demandfile (get-text lbl)) :view true :save false) "Sand Chart"]]))
 
-(defn main-gui []
+(defn main-gui [& {:keys [exit] :or {exit false}}]
   (let [f (frame :title "Demand Builder") p (y-panel) rdl (label "No working directory set")]
+    (when exit (.setDefaultCloseOperation ^javax.swing.JFrame f javax.swing.JFrame/EXIT_ON_CLOSE))
     (doseq [c (flatten (list rdl (->buttons rdl)))] (addp p c))
     (show-frame f p :x 366 :y 200)))
 

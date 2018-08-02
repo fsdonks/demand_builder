@@ -1,0 +1,1 @@
+Testing a corner case where the map duration is less than the end of the first phase record.

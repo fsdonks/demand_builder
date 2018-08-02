@@ -150,9 +150,12 @@
   (sort-by #(vector (:SRC %) (:StartDay %)) (forge->map forgefile)))
 
 (defn last-phase [records &  {:keys [mapend offset] :or {mapend nil offset nil}}]
-  (if (and mapend offset)
-    (:Operation (last (sort-by :StartDay (filter #(>= mapend (+ offset (:StartDay %) (:Duration %))) records))))
-    (:Operation (last (sort-by :StartDay records)))))
+  (let [res (if (and mapend offset)
+              (:Operation (last (sort-by :StartDay (filter #(>= mapend (+ offset (:StartDay %) (:Duration %))) records))))
+              (:Operation (last (sort-by :StartDay records))))]
+    ;Covers the case where mapend is less than the end day of the very first phase record
+    (if (empty? res) (:Operation (first (sort-by :StartDay records))) res)))
+
 
 (defn read-header [file]
  (with-open [r (clojure.java.io/reader file)]

@@ -1,6 +1,7 @@
 (ns demand_builder.gui
   (:require [demand_builder [chart :as c] [formatter :as f] [extend :as ex] [phaseshifter :as ps] [m4plugin :as m4p]]
             [spork.util [io :as io] [table :as tbl]]
+            [spork.util.excel [core :as exl]]
             [seesaw core]
             [clojure.java [io :as jio]])
   (:import [java.io File FileNotFoundException]
@@ -149,6 +150,82 @@
                                    (hide f)) "Shift Start Times"))
     (show-frame f mainpanel :x 276 :y 150)))
 
+(defn refresh-frame [f p] (.updateUI ^javax.swing.JPanel p)) 
+(defn remove-from-panel [p c] (.remove ^javax.swing.JPanel p ^java.awt.Component c))
+
+;;Gets all unique the ForceCodes from the MAP file
+(defn excel-map->fcs [efile sheetname]
+  (let [possible-keys (conj (map first (filter #(= "ForceCode" (second %)) (vec m4p/header-map))) "ForceCode")
+        data (get (exl/xlsx->tables efile :sheetnames [sheetname]) sheetname)
+        i (first (filter identity (map #(get (zipmap (:fields data) (range (count (:fields data)))) %) possible-keys)))]
+    (nth (:columns data) i)))
+
+(defn add-scenario [root a]
+  (let [m (first (filter #(= "MAP" (:Type %)) @a))
+        fcs (filter is-scenario? (excel-map->fcs (:Path m) (:Sheetname m)))
+        f (frame :title "Add Scenario")
+        p (y-panel)
+        file-options (listbox :model (clojure.set/difference (set (m4p/list-excel-files root)) (set (map :Path @a))))
+        sheet-options (listbox :model ["Unit_Node_Detail" "SRC_By_Day"])
+        fc-options (listbox :model (clojure.set/difference (set fcs) (set (map :ForceCode @a))))
+        b (fn->button #(do (hide f)
+                           (swap! a conj  
+                             {:Type "FORGE" :Path (selection file-options) 
+                              :Sheetname (selection sheet-options) :ForceCode (selection fc-options)})) "Add Scenario")
+        options? #(and (selection fc-options) (selection file-options) (selection sheet-options))]
+    (doseq [c [file-options sheet-options fc-options]]
+      (listen c :selection (fn [e] (when (options?) (do (addp p b) (refresh-frame f p))))))              
+    (doseq [c [(label "File Path") file-options (label "Sheet") sheet-options (label "ForceCode") fc-options]] (addp p c))
+    (show-frame f p :x 500 :y 200)))
+
+(defn ->file-metadata-gui [root a type]
+  (let [f (frame :title type)
+        p (y-panel)
+        file-options (listbox :model (clojure.set/difference (set (m4p/list-excel-files root)) (set (map :Path @a))))
+        sheet-options (atom (listbox :model []))
+        run-button (fn->button #(when (and (selection @sheet-options) (selection file-options))
+                                  (do (hide f) 
+                                    (swap! a conj 
+                                      {:Type type :Path (selection file-options) :Sheetname (selection @sheet-options)
+                                       :ForceCode "none"})))
+                     (str "Use this file as " type))]
+    (listen file-options :selection (fn [e]
+                                      (remove-from-panel p @sheet-options) (remove-from-panel p run-button)
+                                      (reset! sheet-options (listbox :model (m4p/list-sheets (selection file-options))))
+                                      (addp p @sheet-options) (addp p run-button) (refresh-frame f p)))
+    (doseq [c [(label "File Path") file-options (label "Sheet") @sheet-options]] (addp p c))
+    (show-frame f p :x 500 :y 200)))
+
+;;Gui to promt user to select files and options to generate meta data file, then run demand-builder
+(defn ->enter-meta-data []
+  (let [a (atom [])
+        root (select-file)
+        f (frame :title "Select Inputs")
+        filef (frame :title "Files Used")
+        p (y-panel)
+        main (y-panel)
+        h [:Path :Type :ForceCode :Sheetname]
+        cons-button (fn->button #(->file-metadata-gui root a "CONSOLIDATED") "Add CONSOLIDATED file")
+        scenario-button (fn->button #(add-scenario root a) "Add FORGE file")
+        map-button (fn->button #(do (->file-metadata-gui root a "MAP") 
+                                  (addp main cons-button)
+                                  (addp main scenario-button)
+                                  (refresh-frame f main)) "Add MAP file")
+        show-files (fn->button 
+                     #(do (.removeAll ^javax.swing.JPanel p)
+                        (doseq [i @a] (doseq [k h] (addp p (if (= k :Path) (label (get i k)) (text (or (get i k) "none"))))))
+                        (refresh-frame filef p)
+                        (show-frame filef p :x 600 :y 300)) "Files Selected")
+        run-button (fn->button #(do (let [inputfile (str (io/as-directory root) "input-map.txt")]
+                                      (do (spork.util.stream/records->file @a inputfile))
+                                      (do (m4p/setup-directory inputfile))
+                                      (m4p/inputfile->demand inputfile)
+                                      (hide f))) "Run Demand Builder")]
+    (addp main show-files)
+    (addp main run-button)
+    (addp main map-button)
+    (show-frame f main :x 300 :y 160)))
+
 ;;Buttons -> first is fn second is title
 ;;Set Working Dir, Set Existing Dir, Shift Phases, Shift DemandGroup, Sand Chart 
 (defn ->buttons [lbl]
@@ -158,6 +235,7 @@
            (set-text lbl (root->outputdir root)) (confirm-input-map root)))  "Set Working Directory"]
      [#(let [f (choose-file)] (when (pos? (count (apply concat (vals (inputs-used (file->pdir f))))))
                                (set-text lbl (file->pdir f)))) "Set Existing Demand"]
+     [#(->enter-meta-data) "Manually Set Meta Data"]
      [#(phase-shifter-gui (get-text lbl)) "Shift Phases"]
      [#(extender-gui (outdir->demandfile (get-text lbl))) "Shift DemandGroup"]
      [#(c/demand-file->sand-charts (outdir->demandfile (get-text lbl)) :view true :save false) "Sand Chart"]]))
@@ -168,4 +246,5 @@
     (doseq [c (flatten (list rdl (->buttons rdl)))] (addp p c))
     (show-frame f p :x 366 :y 200)))
 
+(def root "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel")
 

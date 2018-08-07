@@ -129,7 +129,6 @@
         _ (io/make-folders! inputs)
         _ (io/hock (io/relative-path inputs [(str (:Sheetname vmap) ".txt")])
             (tbl/table->tabdelimited (mapfile->table (:Path vmap) (:Sheetname vmap))))
-        ;_ (ex/xlsx->tabdelimited (:Path vmap) :rootdir inputs)
         _ (ex/xlsx->tabdelimited (:Path vcons) :rootdir inputs)
         _ (doseq [f forges] (forgexlsx->tsv f (io/as-directory (str root outputdir)) in-map))
         new-map (str (io/as-directory (str root outputdir)) (:Sheetname vmap) ".txt")
@@ -165,13 +164,21 @@
 
 ;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
-  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
+  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname) (assoc ex/+default-options+ :read-cell #(ex/replace-newlines % 0)))
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 
 ;;reads the fields of an exfile sheet
 (defn read-header [exfile sheetname]
-  (:fields (ex/sheet->table (get-sheet-by-name exfile sheetname))))
+  (try
+    (:fields (ex/sheet->table (get-sheet-by-name exfile sheetname)))
+    (catch java.lang.IllegalArgumentException iae 
+      (throw (ex-info
+               (str "Forumla evaluation resulted in error in \nfile: " exfile " \nsheet: " sheetname "\n Fix Excel file before running.") {:input 42})))
+    (catch java.lang.RuntimeException nyi
+      (if (= (str nyi) "java.lang.RuntimeException: not implemented yet")
+        (throw (ex-info (str "Remote VLOOKUPs not supported. " "Resolve VLOOKUPs in \nfile: " exfile "\nsheet: " sheetname) {:input 42}))
+        (throw (ex-info (str nyi) {:input 42}))))))
 
 ;;Expected headers for Unit_Node_Detail, Vignette consolidated, and Vignette mapping files
 (def und-header   ["UIN Quantity" "Time Period Begin Day" "Time Period Days" "Subphase" "SRC Strength" "SRC" "Title"])
@@ -288,4 +295,17 @@
 ;;Gets file paths and meta data from inputmap, converts inputs to txt files, then runs demand builder formatter
 (defn root->demand-file [root]
   (inputfile->demand (root->inputmap root)))
+
+(defn get-external-sheet-index [wb-path sheetname]
+  (let [sheets (doc/sheet-seq (doc/load-workbook wb-path))]
+    (or (get (zipmap (map #(doc/sheet-name %) sheets) (range (count sheets))) sheetname) -1)))
+
+;;(import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator)
+;;(XSSFFormulaEvaluator. (doc/load-workbook t2))
+;org.apache.poi.xssf.usermodel.BaseXSSFEvaluationWorkbook
+;(import org.apache.poi.xssf.usermodel.XSSFEvaluationWorkbook)
+;(import org.apache.poi.xssf.usermodel.XSSFWorkbook)
+;(proxy [org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator] [wb] )
+;(proxy [org.apache.poi.xssf.usermodel.XSSFEvaluationWorkbook])
+
 

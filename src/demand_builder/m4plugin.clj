@@ -164,7 +164,7 @@
 
 ;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
-  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname) (assoc ex/+default-options+ :read-cell #(ex/replace-newlines % 0)))
+  (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 
@@ -296,16 +296,5 @@
 (defn root->demand-file [root]
   (inputfile->demand (root->inputmap root)))
 
-(defn get-external-sheet-index [wb-path sheetname]
-  (let [sheets (doc/sheet-seq (doc/load-workbook wb-path))]
-    (or (get (zipmap (map #(doc/sheet-name %) sheets) (range (count sheets))) sheetname) -1)))
-
-;;(import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator)
-;;(XSSFFormulaEvaluator. (doc/load-workbook t2))
-;org.apache.poi.xssf.usermodel.BaseXSSFEvaluationWorkbook
-;(import org.apache.poi.xssf.usermodel.XSSFEvaluationWorkbook)
-;(import org.apache.poi.xssf.usermodel.XSSFWorkbook)
-;(proxy [org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator] [wb] )
-;(proxy [org.apache.poi.xssf.usermodel.XSSFEvaluationWorkbook])
 
 

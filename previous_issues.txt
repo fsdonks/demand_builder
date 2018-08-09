@@ -1,6 +1,0 @@
-do these still exist? Haven't tested recently.
-
-Minor:
-"Created demand file" path is wrong.  Doesn't include filename before _DEMAND.txt
-
-All blank quantities for an SRC in FORGE data will cause an error, but this type of record is unlikely to exist in the FORGE output.

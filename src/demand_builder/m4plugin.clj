@@ -162,11 +162,18 @@
 (defn read-sheet [exfile sheetname]
   (ex/sheet->table (get-sheet-by-name exfile sheetname)))
 
+(def detail-schema {:Day :float
+                    :SRC :text
+                    (keyword "UIN Quantity") :float
+                    (keyword "Time Period Begin Day") :float
+                    (keyword "Time Period Days") :float
+                    :Subphase :text})
+
 ;;Reads an excel sheet into a record map
 (defn sheet->records [exfile sheetname]
   (into [] (-> (ex/sheet->table (get-sheet-by-name exfile sheetname))
                (tbl/table->tabdelimited)
-               (tbl/tabdelimited->records))))
+               (tbl/tabdelimited->records :schema detail-schema))))
 
 ;;reads the fields of an exfile sheet
 (defn read-header [exfile sheetname]

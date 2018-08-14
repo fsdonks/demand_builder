@@ -6,7 +6,7 @@
 ;;Example: (get-times demandfile Vignette) 
 (defn get-times [filename groupby]
   (let [data (jf/group-by-key (c/file->map-list filename) groupby)]
-    (for [k (keys data) :let [g (sort-by :StarDay (get data k))]] 
+    (for [k (keys data) :let [g (sort-by :StartDay (get data k))]] 
      [k (first (map :StartDay g)) (+ (:StartDay (last g)) (:Duration (last g)))])))
   
 ;;Will adjust values in map-list which groupkey match key by delta.

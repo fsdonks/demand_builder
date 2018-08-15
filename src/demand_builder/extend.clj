@@ -8,7 +8,15 @@
   (let [data (jf/group-by-key (c/file->map-list filename) groupby)]
     (for [k (keys data) :let [g (sort-by :StartDay (get data k))]] 
      [k (first (map :StartDay g)) (+ (:StartDay (last g)) (:Duration (last g)))])))
-  
+
+;;Will only adjust the duration of the last records
+(defn adjust-duration [map-list groupkey key delta]
+  (let [no-change (remove #(= key (groupkey %)) map-list)
+        update (filter #(= key (groupkey %)) map-list)
+        last-day (apply max (map :StartDay update))
+        last-recs (filter #(+ last-day (:StartDay %)) update)]
+    (flatten (conj no-change (map #(assoc % :Duration (+ delta (:Duration %))) last-recs)))))
+
 ;;Will adjust values in map-list which groupkey match key by delta.
 ;;Map-list is a list of maps (records)
 ;;Valkey is a keyword of the value in file (such as :Quantity, :Strength, :Duration, ect) **has to be numerical
@@ -16,9 +24,11 @@
 ;;Key is the specific group value
 ;;Delta is the amount of val (from val key) to update 
 (defn adjust-val [map-list valkey groupkey key delta]
-  (let [no-change (remove #(= key (groupkey %)) map-list)
-        update (filter #(= key (groupkey %)) map-list)]
-    (flatten (conj no-change (map #(assoc % valkey (+ delta (valkey %))) update)))))
+  (if (= valkey :Duration)
+    (adjust-duration map-list groupkey key delta)
+    (let [no-change (remove #(= key (groupkey %)) map-list)
+          update (filter #(= key (groupkey %)) map-list)]
+      (flatten (conj no-change (map #(assoc % valkey (+ delta (valkey %))) update))))))
 
 ;;Make all updates in list of updates to map-list, 
 ;;Where an update is a map with keys :valkey (keyword) :groupkey (keyword) :key (value of specific group) delta (number)

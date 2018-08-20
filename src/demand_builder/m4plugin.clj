@@ -59,11 +59,16 @@
 
 ;;Reads FORGE data from either the Unit_Node_Detail sheet or SRC_By_Day sheet
 (defn forgexlsx->tsv [forgefile dir input-map]
-  (let [p (first (filter #(= forgefile (:Path %)) input-map))]
+  (let [p (first (filter #(= forgefile (:Path %)) input-map))
+        d (io/as-directory
+                        (str (io/as-directory dir)
+                          (first (clojure.string/split (io/fname forgefile) #"[.]"))))] ;;need unique directory when same sheet names
     (if (= (:Sheetname p) "Unit_Node_Detail")
-      (ex/xlsx->tabdelimited forgefile :rootdir dir :sheetnames [(:Sheetname p)])
+      (ex/xlsx->tabdelimited forgefile :sheetnames [(:Sheetname p)])
       (forge->non-tab forgefile dir (:Sheetname p)))
-    (rename-file (str dir (:Sheetname p) ".txt") (str dir "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))))
+    (rename-file (str d (:Sheetname p) ".txt") 
+      (str (io/as-directory (str dir outputdir)) "FORGE_" (forge-filename->fc forgefile input-map) ".txt"))
+    (clojure.java.io/delete-file d)))
 
 ;;Reads the first line of a tab delimited text file
 (defn read-header-txt [file]
@@ -119,6 +124,13 @@
                (tbl/table->tabdelimited)
                (tbl/tabdelimited->records))))
 
+;;Converts excel file to txt and resolves headers
+(defn excel->txt-fixed-headers [exfile sheetname outfile]
+  (io/hock outfile
+    (tbl/table->tabdelimited
+      (tbl/make-table (resolve-header (get-nth-row exfile sheetname 0)) 
+        (:columns (get (ex/xlsx->tables exfile :sheetnames [sheetname]) sheetname))))))
+
 ;;Formatts and moves files into correct location to be able to run demand builder from root
 (defn setup-dir [in-map root]
   (let [inputs (io/as-directory (str root outputdir))
@@ -126,17 +138,15 @@
         vmap (first (find-file "MAP"))
         vcons (first (find-file "CONSOLIDATED"))
         forges (map :Path (find-file "FORGE"))
-        _ (io/make-folders! inputs)
-        _ (io/hock (io/relative-path inputs [(str (:Sheetname vmap) ".txt")])
-            (tbl/table->tabdelimited (mapfile->table (:Path vmap) (:Sheetname vmap))))
-        _ (ex/xlsx->tabdelimited (:Path vcons) :rootdir inputs)
-        _ (doseq [f forges] (forgexlsx->tsv f (io/as-directory (str root outputdir)) in-map))
         new-map (str (io/as-directory (str root outputdir)) (:Sheetname vmap) ".txt")
-        new-con (str (io/as-directory (str root outputdir)) (:Sheetname vcons) ".txt")]
-    (fix-header new-map)
-    (fix-header new-con)
-    (rename-file new-map (clojure.string/replace new-map (io/fname new-map) (str "MAP_" (io/fname new-map))))
-    (rename-file new-con (clojure.string/replace new-con (io/fname new-con) (str "CONSOLIDATED_" (io/fname new-con))))))
+        new-con (str (io/as-directory (str root outputdir)) (:Sheetname vcons) ".txt")
+        _ (io/make-folders! inputs)
+        exl->txt (fn [file] (let [sheet (first (list-sheets (:Path file)))]
+                              (excel->txt-fixed-headers (:Path file) sheet (str (io/as-directory (str root outputdir)) sheet ".txt"))))
+        _ (doall (pmap #(exl->txt %) [vmap vcons]))
+        _ (doall (pmap #(forgexlsx->tsv % (io/as-directory root) in-map) forges))]
+    (doall (pmap #(rename-file (first %) (clojure.string/replace (first %) (io/fname (first %)) (str (second %) (io/fname (first %)))))
+             [[new-map "MAP_"] [new-con "CONSOLIDATED_"]]))))
 
 ;;Converts the excel workbooks to tsv and creates the required path structure and file names
 (defn setup-directory [input-file]
@@ -262,15 +272,19 @@
         (into r fc)))
     r))
 
+;;Get Scenario ForceCodes from MAP
+(defn map->scenario-fcs [mapfile]
+  (let [r (filter #(= "SE-" (apply str (take 3 (str (:ForceCode %))))) 
+            (read-mapfile mapfile (first (list-sheets mapfile))))]
+    (map :ForceCode r)))
+
 ;;For each forge in root, tries to match the most likely ForceCode form Map using filename and duration data
+;;Randomly match, don't read FORGE an extra time - too slow
 (defn match-forge-fc [root]
-  (let [mapfile (first (find-file-type root "MAP"))
-        forges (find-file-type root "FORGE")
-        map-times (map->scenario-times mapfile)
-        forge-times (zipmap forges (map forge-time forges))
-        fcs (map :fc map-times)
-        mapped-fcs (forges->fc forges forge-times map-times fcs [])]
-    (zipmap (map first mapped-fcs) (map second mapped-fcs))))
+  (let [forges (find-file-type root "FORGE")
+        fcs (map->scenario-fcs (first (find-file-type root "MAP")))]
+    (zipmap forges fcs)))
+
 
 ;;Attempts to determine which sheet to use from excel file
 ;;Throws exception asking to user input if can't be determined from metadata
@@ -290,7 +304,7 @@
 (defn root->inputmap [root]
   (let [output (str (io/as-directory root) "input-map.txt")
         files (list-excel-files root)
-        forge-fcs (match-forge-fc root)]
+        forge-fcs (match-forge-fc root)] ;;Random matching - let the user fix file mappings in gui
     (when (io/fexists? output)
       (clojure.java.io/delete-file output))
     (doseq [i (concat ["Path\tType\tForceCode\tSheetname\n"]
@@ -302,6 +316,10 @@
 ;;Gets file paths and meta data from inputmap, converts inputs to txt files, then runs demand builder formatter
 (defn root->demand-file [root]
   (inputfile->demand (root->inputmap root)))
+
+
+(def root "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\")
+(def vcons "C:\\Users\\michael.m.pavlak.civ\\Desktop\\complexest\\Input\\Excel\\Vignette Consolidated - TAA 20-24.xlsx")
 
 
 

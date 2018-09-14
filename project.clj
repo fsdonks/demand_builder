@@ -11,12 +11,7 @@
                  [incanter "1.9.3"]]
   :source-paths ["src" "../spork/src"]
   :main demand_builder.core
-  ;:skip-aot demand_builder.core
   :aot [demand_builder.core
         ;;this doesn't need to be aot'd
         demand_builder.chart]
   :repl-options {:timeout 300000})
-  ;:target-path "target/%s"
-  ;:profiles {:uberjar {:aot :all}}
-  ;:profiles {:dev {:resource-paths ["test/resources"]}}
-  

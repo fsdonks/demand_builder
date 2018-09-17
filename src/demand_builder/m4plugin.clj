@@ -131,6 +131,10 @@
       (tbl/make-table (resolve-header (get-nth-row exfile sheetname 0)) 
         (:columns (get (ex/xlsx->tables exfile :sheetnames [sheetname]) sheetname))))))
 
+;;List the sheet names in an excel file
+(defn list-sheets [exfile]
+  (map doc/sheet-name (doc/sheet-seq (doc/load-workbook exfile))))
+
 ;;Formatts and moves files into correct location to be able to run demand builder from root
 (defn setup-dir [in-map root]
   (let [inputs (io/as-directory (str root outputdir))
@@ -159,10 +163,6 @@
   (let [_ (setup-directory input-file)
         root (io/as-directory (str (clojure.string/replace input-file (io/fname input-file) "") outputdir))]
     (formatter/root->demandfile root)))
-
-;;List the sheet names in an excel file
-(defn list-sheets [exfile]
-  (map doc/sheet-name (doc/sheet-seq (doc/load-workbook exfile))))
 
 ;;returns the sheet object of the excel file with sheet sheetname
 (defn get-sheet-by-name [exfile sheetname]

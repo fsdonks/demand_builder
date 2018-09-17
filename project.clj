@@ -12,5 +12,5 @@
   :source-paths ["src" "../spork/src"]
   :main demand-builder.main
   :aot [demand-builder.main]
-  :repl-options {:timeout 300000}
+;  :repl-options {:timeout 300000}
   )

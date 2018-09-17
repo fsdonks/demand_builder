@@ -4,9 +4,6 @@
             [clojure.java [io :as jio]]
             [demand_builder.formatter :as formatter]))
 
-;;hacky patch to fix compilation issues...
-(declare list-sheets)
-
 ;;Name of outputdir file will be created in (not full path)
 (def outputdir "Outputs")
 

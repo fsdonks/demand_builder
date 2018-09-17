@@ -8,10 +8,9 @@
                  [spork "0.2.1.0-SNAPSHOT"]
                  [proc "0.2.6-SNAPSHOT"]
                  ;;should be updated to 1.9.3
-                 [incanter "1.9.3"]]
+                 [joinr/incanter "1.9.3-SNAPSHOT"]]
   :source-paths ["src" "../spork/src"]
-  :main demand_builder.core
-  :aot [demand_builder.core
-        ;;this doesn't need to be aot'd
-        demand_builder.chart]
-  :repl-options {:timeout 300000})
+  :main demand-builder.main
+  :aot [demand-builder.main]
+  :repl-options {:timeout 300000}
+  )

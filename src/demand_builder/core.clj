@@ -3,7 +3,7 @@
   (:gen-class)
   (:require [clojure.java [io :as io]]
             [spork.util [io :refer [list-files fpath fname fext write! writeln!]]]
-            [demand_builder [chart :as c]])
+            [demand_builder [chart :as c] [gui :as gui]])
   (:import [java.io File FileNotFoundException]
            [javax.swing JFrame JFileChooser JTextArea JPanel JLabel]))
 
@@ -752,9 +752,8 @@ When no argument passed in, opens GUI to select path/paths (can select multiple 
        (->demand-file)
        (->demand-file args)))))
 
-(require 'demand_builder.gui)
-(defn -main [& args]
-  (demand_builder.gui/main-gui :exit true))
+(defn gui [& {:keys [exit?] :or {exit? true}}]
+  (demand_builder.gui/main-gui :exit exit?))
 
 
 

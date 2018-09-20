@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[seesaw "1.4.5" :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.9.0"]
+                 [org.clojure/clojure "1.8.0"]
                  [spork "0.2.1.0-SNAPSHOT"]
                  [proc "0.2.6-SNAPSHOT"]
                  ;;should be updated to 1.9.3

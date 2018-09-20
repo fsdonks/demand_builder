@@ -143,7 +143,7 @@
                        strength-fn
                        :ordering ordering
                        :color-map color-map
-                       :schema (if-not supply-file fromDemand fromSupply)
+                       :schema (if-not supplyfile fromDemand fromSupply)
                        :view view
                        :save save)))
 

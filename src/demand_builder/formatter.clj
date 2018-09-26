@@ -35,8 +35,9 @@
 
 (defn extend-recs [recs mapend lastphase]
   (let [last-phase-recs (filter #(= lastphase (:Operation %)) recs)
-        last-day-in-phase (apply max (map :StartDay last-phase-recs))]
-    (filter #(= last-day-in-phase (:StartDay %)) last-phase-recs)))
+        last-day-in-phase (apply max (map (fn [r] (+ (:StartDay r)
+  (:Duration r))) last-phase-recs))]
+    (filter #(= last-day-in-phase (+ (:StartDay %) (:Duration %))) last-phase-recs)))
 
 ;;Takes a list of maps (of FORGE data), the last phase for the FORGE scenario, and the final day for the scenario from the map (Start + Duration from map)
 ;;For the last period of each record, if the phase matches last phase, will change the duration to match the ending time specified by the map

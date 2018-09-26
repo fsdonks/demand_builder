@@ -1,5 +1,6 @@
 (ns demand_builder.forgeformatter
-  (:require [spork.util.table]))
+  (:require [spork.util.table]
+            [clojure.string :as str]))
 
 ;;ns for reading data from FORGE file and parsing the data needed for a MARATHON demand record/
 ;;includes multiple methods of parsing using different formatts.
@@ -33,17 +34,17 @@
 ;;-The value for :data will be a list of maps with the keys as the keys from the header and the values as the values in the corresponding column
 ;; **The keys for days have already been formatted and read as number. To get the quantity at time 8 for map m, use (get m 8)
 (defn read-forge [filename]
-  (with-open [r (clojure.java.io/reader filename)]
-    (let [formatter #(if (and (clojure.string/includes? % "TP") (clojure.string/includes? % "Day"))
-                       (read-num (clojure.string/replace (first (clojure.string/split % #"TP")) "Day " "")) %)
-          phases (clojure.string/split (first (line-seq r)) #"\t")
-          header (map formatter (clojure.string/split (first (line-seq r)) #"\t"))
+  (let [l (str/split (slurp filename) #"\r\n")
+        formatter #(if (and (str/includes? % "TP") (str/includes? % "Day"))
+                       (read-num (str/replace (first (str/split % #"TP")) "Day " "")) %)
+          phases (str/split (first l) #"\t")
+          header (map formatter (str/split (second l) #"\t"))
           h (count (filter #(not (number? %)) header))
           formatted-phases (apply conj (map #(hash-map (first %) (second %))
                                          (filter #(not= "" (first %)) (zipmap (drop h phases) (sort (filter number? header))))))
-          data (map #(clojure.string/split % #"\t") (into [] (line-seq r)))
+          data (map #(str/split % #"\t") (into [] (drop 2 l)))
           formatted-data (map #(zipmap header %) (filter #(and (>= (count %) h) (not= "" (first %))) data))]
-      {:header header :phases formatted-phases :data formatted-data})))
+      {:header header :phases formatted-phases :data formatted-data}))
 
 ;;Gets phase durting time
 (defn get-phase [phases time]
@@ -61,10 +62,15 @@
   (let [t2 (drop-while #(not= t %) times)]
     (if (second t2) (- (second t2) t) 8)))
 
-(defn get-startday [t times startday]
-  (let [prev (last (take-while #(not= t %) times))]
-    (if prev (+ prev startday) 1)))
-  
+(defn get-previous
+  "returns the previous day"
+  [t times]
+  (last (take-while #(not= t %) times)))
+
+(defn sort-by-vals
+  "takes a map and sorts it by the values."
+  [m]
+  (into (sorted-map-by (fn [k1 k2] (compare (m k1) (m k2)))) m))
 
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
 ;;Any blank or lines that do not contain individual data (No SRC value or aggregated/total values)
@@ -72,14 +78,17 @@
 ;;Also fills in the remaining field not part of the raw input (Opertion/Phase, Duration, ect)
 ;;Returns a list of maps with the keys :Quantity, :StartDay, :Duration, :Operation, :Strength, :SRC, and :Title (SRC title)
 (defn ->record [line phases]
-  (let [times (sort (map first (filter #(number? (first %)) line)))
-        forgestart (second (first (sort phases)))
+  (let [;;we're returning the same times every time this fn is
+        ;;called (inefficiency)
+        times (sort (map first (filter #(number? (first %)) line)))
+        forgestart (second (first (sort-by-vals phases)))
         startday (first times)]
     (filter #(not (zero? (:Quantity %)))
-      (for [t times]
+            (for [t times
+                  :let [prev (get-previous t times)]]
         {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
-         :StartDay (- (get-startday t times startday) forgestart) 
-         :Duration (get-duration t times) 
+         :StartDay (if prev (+ prev 1) 1)
+         :Duration (if prev (- t prev) 1)
          :Operation (get-phase phases t)
          :Strength (read-num (get line "Strength")) 
          :SRC (get line "SRC")

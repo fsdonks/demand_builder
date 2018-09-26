@@ -52,12 +52,12 @@
 
 ;;Option to use non-tabular SRC_by_Day sheet from FORGE in event more specific
 ;;phase timing is needed for corner cases
-(defn forge->non-tab [forgefile dir sheetname]
+(defn forge->non-tab [forgefile dir sheetname scenario]
    (let [phases (get-nth-row forgefile sheetname 0)
          data (get (ex/xlsx->tables forgefile :sheetnames [sheetname]
                                     :options {:default {:skip 1}}) sheetname)
          fields (:fields data)
-         outfile (str (io/as-directory dir) sheetname ".txt")
+         outfile (str (io/as-directory dir) scenario ".txt")
          line->tsv (fn [line] (str (apply str (for [v line] (str v "\t"))) "\n"))]
     (when (io/fexists? outfile)
       (clojure.java.io/delete-file outfile))
@@ -69,18 +69,13 @@
 
 ;;Reads FORGE data from either the Unit_Node_Detail sheet or SRC_By_Day sheet
 (defn forgexlsx->tsv [forgefile dir input-map]
-  (let [p (first (filter #(= forgefile (:Path %)) input-map))
-        d (io/as-directory
-           (str (io/as-directory dir)
-                ;;need unique directory when same sheet names
-                  (first (clojure.string/split (io/fname forgefile) #"[.]"))))]
+  (let [p (first (filter #(= forgefile (:Path %)) input-map))]
     (if (= (:Sheetname p) "Unit_Node_Detail")
       (ex/xlsx->tabdelimited forgefile :sheetnames [(:Sheetname p)])
-      (forge->non-tab forgefile dir (:Sheetname p)))
-    (rename-file (str d (:Sheetname p) ".txt")
+      (forge->non-tab forgefile dir (:Sheetname p) (:ForceCode p)))
+    (rename-file (str dir (:ForceCode p) ".txt")
                  (str (io/as-directory (str dir outputdir)) "FORGE_"
-                      (forge-filename->fc forgefile input-map) ".txt"))
-    (clojure.java.io/delete-file d)))
+                      (forge-filename->fc forgefile input-map) ".txt"))))
 
 ;;Reads the first line of a tab delimited text file
 (defn read-header-txt [file]

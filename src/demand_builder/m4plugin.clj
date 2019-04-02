@@ -317,8 +317,11 @@
   (let [sheets (list-sheets file)]
     (cond 
       (= 1 (count sheets)) (first sheets)
-      (some #{"Unit_Node_Detail"} sheets) "Unit_Node_Detail"
+      ;;ideally, I think we want to use Unit_Node_Detail first, but
+      ;;that's not working right now.
       (some #{"SRC_By_Day"} sheets) "SRC_By_Day"
+      (some #{"Unit_Node_Detail"} sheets) "Unit_Node_Detail"
+
       ;Either the file is FORGE and attempts to use Unit_Node_Detail, and uses
       ;SRC_By_Day only when it does not exist
       ;;If the file is not a FORGE file and has more than one sheet, throw error

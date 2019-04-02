@@ -84,11 +84,14 @@
   (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
   (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e)))))))
 
-;;Reads forgefile, throws more descriptive error
+;;Reads forgefile
+;;It's better to have the original error here.  It's more descriptive.
 (defn read-forgefile [fc forgefile]
- (try
+ ;(try
   (ff/merge-duration (reduce-forge (ff/any-forge->records forgefile)))
-  (catch Exception e (throw (Exception. (str "File not found for FORGE_" fc "\n" (.getMessage e)))))))
+  ;(catch Exception e (throw (Exception. (str "File not found for
+;FORGE_" fc "\n" (.getMessage e))))))
+  )
 
 ;;Returns true when the fc string represents a scenario
 (defn scenario? [string] (= "SE" (subs string 0 2))) 
@@ -143,8 +146,10 @@
         vignette-data (read-vignette vignettefile)
         scenarios (filter scenario? (map :ForceCode map-data))               
         vignettes (filter #(not (scenario? %)) (map :ForceCode map-data))
-        joined-vignettes (map #(for [md (filter-fc % map-data)]
-                                 (conj md (first (filter-fc % vignette-data)))) vignettes)
+        joined-vignettes (for [md map-data
+                               vignette-rec (filter-fc (:ForceCode md)
+                                                       vignette-data)]
+                           (conj md vignette-rec))
         joined-forges (join-forges scenarios map-data mapfile :phases phases)]
     (write-oos-vignettes mapfile map-data vignette-data)
     (filter 

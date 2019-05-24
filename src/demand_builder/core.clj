@@ -290,15 +290,8 @@
 ;; ===== FUNCTIONS USED FOR FORMAT FORGE DATA =================================
 ;; ============================================================================
 
-;; Returns vals split by p, where p is the result of some function that partitions vals
-(defn split-by-p [p vals fd]
-  (let [s (map count p) c (for [x (range 1 (inc (count s)))] (apply + (take x s)))]
-    (for [x (range (count s))]
-      (drop (- (nth c x) (nth s x)) (take (nth c x) vals)))))
-
 ;; Given a coll of time sequence keys, returns the coll split by phase  
-(defn split-by-phase [vals fd]
-  (split-by-p (partition-by identity (map #(get-phase % fd) (sort vals))) vals fd))
+(defn split-by-phase [vals fd] (partition-by #(get-phase % fd) vals))
 
 ;; Given a coll of time sequence keys, return the coll split by value
 (defn split-by-val [vals fd]

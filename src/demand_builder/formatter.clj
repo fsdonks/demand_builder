@@ -1,5 +1,5 @@
 (ns demand_builder.formatter
-  (:require [spork.util table parsing io]
+  (:require [spork.util table parsing [io :as io]]
             [demand_builder [forgeformatter :as ff]]
             [clojure.java [io :as jio]]))
 
@@ -80,7 +80,8 @@
 
 ;;Reads mapping file, throws more descriptive error
 (defn read-mapfile [mapfile]
- (try
+  (try
+  (println mapfile)
   (into [] (spork.util.table/tabdelimited->records mapfile :schema mapping-schema))
   (catch java.lang.AssertionError e (throw (Exception. (str "Error reading MAP file (" mapfile ")\n" (.getMessage e)))))))
 
@@ -204,7 +205,16 @@
 ;; All files need to be text tab delimted (.txt) files, NOT EXCEL FILES
 ;; - The output file will be saved in the given root directory as root/[Subroot]-DEMAND.txt
 (defn root->demandfile [root]  
-  (let [isFile? (fn [ftype fnames] (filter #(clojure.string/includes? % ftype) fnames))
+  (let [isFile? (fn [ftype fnames]
+                  (filter (fn [file-path]
+                            (and (clojure.string/includes?
+                                  file-path ftype)
+                                 ;;force it to find the text file in
+                                 ;;case you happen to have another
+                                 ;;file with same ftype in the filename
+                                 (= (io/fext
+                                     file-path)
+                                    "txt"))) fnames))
         files (map str (spork.util.io/list-files root))
         mapfile      (first (isFile? "MAP_" files))
         vignettefile (first (isFile? "CONSOLIDATED_" files))

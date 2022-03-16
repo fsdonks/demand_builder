@@ -6,7 +6,7 @@
   :dependencies [[seesaw "1.5.0" :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.10.1"]
                  [spork "0.2.1.4-SNAPSHOT"]
-                 [proc "0.2.8-SNAPSHOT"]
+                 [proc "0.2.9-SNAPSHOT"]
                  ;;should be updated to 1.9.3
                  [joinr/incanter-core "1.9.3-SNAPSHOT"]
                  [joinr/incanter-charts "1.9.3-SNAPSHOT"]]

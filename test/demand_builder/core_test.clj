@@ -89,6 +89,7 @@
    (add-path "duplicates")
    (add-path "early_map")
    (add-path "earlier_map")
+   (add-path "forge_decimals")
    ])
 
 (deftest demandbuilder

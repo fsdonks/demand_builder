@@ -72,6 +72,12 @@
   [m]
   (into (sorted-map-by (fn [k1 k2] (compare (m k1) (m k2)))) m))
 
+(defn forge-quantity
+  "Parse the forge quantity to a number and then round up in case of
+  fractional units required."
+  [quantity]
+  (Math/ceil (read-string quantity)))
+
 ;;Takes a single line from the :data list and the phase map from :phases (returned from read-forge)
 ;;Any blank or lines that do not contain individual data (No SRC value or aggregated/total values)
 ;;Expands each line into multiple lines split by a change in phase or change in quantity (by SRC)
@@ -86,7 +92,7 @@
     (filter #(not (zero? (:Quantity %)))
             (for [t times
                   :let [prev (get-previous t times)]]
-        {:Quantity (if (= "" (get line t)) 0 (read-num (get line t)))
+        {:Quantity (if (= "" (get line t)) 0 (forge-quantity (get line t)))
          :StartDay (if prev (+ prev 1) 1)
          :Duration (if prev (- t prev) 1)
          :Operation (get-phase phases t)

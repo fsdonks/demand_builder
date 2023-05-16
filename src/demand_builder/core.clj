@@ -25,7 +25,9 @@
 (defn read-num [string]
   (if string
     (let [num (fn [string] (apply str (map #(re-matches #"[\d.]*" %) (map str string))))
-          n (clojure.string/split (num string) #"[.]")  t (take 2 n) b (drop 2 n)
+          n (clojure.string/split (num string) #"[.]")
+          t (take 2 n)
+          b (drop 2 n)
           d (read-string (str (first t) "." (second t) (apply str b)))]
       (if (zero? (- d (int d))) (int d) d))
     0))

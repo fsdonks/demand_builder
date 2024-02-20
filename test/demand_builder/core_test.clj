@@ -78,26 +78,6 @@
 
 (defn add-path [test-name]  (str "test/resources/" test-name))
 
-(deep-copy "test/resources/updated-test/"
-           "/test/resources/"
-           :filt forge-filt)
-
-(def test-paths
-  [(add-path "wrong_phase_extended")
-   (add-path "simplest")
-   (add-path "TestSet2")
-   (add-path "TestCase3")
-   (add-path "ManySRCs-1DemandGroup")
-   (add-path "complexest")
-   (add-path "inactive_extension")
-   (add-path "intermittent")
-   (add-path "increments")
-   (add-path "duplicates")
-   (add-path "early_map")
-   (add-path "earlier_map")
-   (add-path "forge_decimals")
-   ])
-
 (defn last-split
   "Split a string based on another string and return the last split.
   Used in deep-copy."
@@ -125,6 +105,36 @@
 			(when (not (.exists vf)) (io/make-parents vf))
 			(when (.isFile kf) (io/copy kf vf))))))
 
+;;(deep-copy "test/resources/updated-test/"
+;;  "/test/resources/"
+;; :filt forge-filt)
+;;(doseq [p test-names] (get-output (add-path p)))
+
+(def test-names
+  [ "wrong_phase_extended"
+   "simplest"
+   "TestSet2"
+   "TestCase3"
+   "ManySRCs-1DemandGroup"
+   "complexest"
+   "inactive_extension"
+   "intermittent"
+   "increments"
+   "duplicates"
+   "early_map"
+   "earlier_map"
+   "forge_decimals"
+   ])
+
+(def test-paths
+  (mapcat (fn [test-name]           
+            [;;SRC_by_Day tests
+             ;;(all test data same as unit node details tests except
+             ;;for the FORGE files.
+             (add-path test-name)
+             ;;Unit Node Details tests
+             (add-path (str test-name "/updated-test"))]) test-names))           
+  
 (deftest demandbuilder
   (doseq [p test-paths
           :let [_ (println (str "Testing " p))

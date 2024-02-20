@@ -2,7 +2,9 @@
   (:require [clojure.test :refer :all]
             [demand_builder.core :refer :all]
             [demand_builder [formatter :as f]]
-            [spork.util.table :as tbl]))
+            [spork.util.table :as tbl]
+            [clojure.string :as strlib]
+            [clojure.java [io :as io]]))
 
 ;C-c C-k to load me and then switch to this namespace to run-tests
 
@@ -74,7 +76,11 @@
   [path]
   (= (set (get-expected path)) (set (get-output path))))
 
-(defn add-path [test-name]  (str "test/resources/updated-test/" test-name))
+(defn add-path [test-name]  (str "test/resources/" test-name))
+
+(deep-copy "test/resources/updated-test/"
+           "/test/resources/"
+           :filt forge-filt)
 
 (def test-paths
   [(add-path "wrong_phase_extended")
@@ -91,6 +97,33 @@
    (add-path "earlier_map")
    (add-path "forge_decimals")
    ])
+
+(defn last-split
+  "Split a string based on another string and return the last split.
+  Used in deep-copy."
+  [in-str sep]
+  (last (strlib/split in-str (re-pattern sep))))
+
+(defn forge-filt [io-file]
+  (not= (.getName io-file) "FORGE_SE-99.txt"))
+
+(defn deep-copy 
+	"Copies all files in sourcedir to targetdir.  Creates folders
+  as needed.  Filter java.io.File objects with filt"
+  [sourcedir targetdir & {:keys [filt] :or {filt (fn [f] true)}}]
+  (let [source-paths (->> (io/file sourcedir)
+                          (file-seq)
+                          (filter filt)
+                          (map #(.getPath %)))
+        ;;Want the dest-paths to include everything but the sourcedir.
+	dest-paths   (map #(str targetdir (last-split % sourcedir))
+                          ;;First source-path will be the sourcedir
+                          (rest source-paths))              
+	pathmap (zipmap (rest source-paths) dest-paths)]
+	  (doseq [kv pathmap]
+		(let [[kf vf] (map io/file kv)]		
+			(when (not (.exists vf)) (io/make-parents vf))
+			(when (.isFile kf) (io/copy kf vf))))))
 
 (deftest demandbuilder
   (doseq [p test-paths

@@ -1,4 +1,4 @@
-Force List Code (ID)	TAA 20-24 ISC Scenarios and Vignettes	BCT Original	BCT New	Start	Duration	BCT Quantity
+ForceCode	TAA 20-24 ISC Scenarios and Vignettes	BCT Original	BCT New	StartDay	Duration	BCT Quantity
 S-7337	S-7337			91	273	0
 S-706	S-706			91	273	0
 SE-99	Scenario 99			1092	3000	8

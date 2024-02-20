@@ -32,9 +32,16 @@
 ;;-The value for :phases will be a map with the phase name as the key and the start day of the phase as the value
 ;; **the phase start days correspond to the day (listed in header) and only needs to be adjusted by the map offset
 ;;-The value for :data will be a list of maps with the keys as the keys from the header and the values as the values in the corresponding column
-;; **The keys for days have already been formatted and read as number. To get the quantity at time 8 for map m, use (get m 8)
+;; **The keys for days have already been formatted and read as
+;;number. To get the quantity at time 8 for map m, use (get m 8)
+(defn slurp-forge [filename]
+  (-> (slurp filename)
+      ;;remove newlines from cells.
+      (str/replace #"\nTP" "TP")
+      (str/split-lines)))
+
 (defn read-forge [filename]
-  (let [l (str/split (slurp filename) #"\r\n")
+  (let [l (slurp-forge filename)
         formatter #(if (and (str/includes? % "TP") (str/includes? % "Day"))
                        (read-num (str/replace (first (str/split % #"TP")) "Day " "")) %)
           phases (str/split (first l) #"\t")

@@ -1,22 +1,22 @@
-Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title10_32	OITitle
-DemandRecord	TRUE	1	1	1	91	273	45	08670R000	Uniform	S-706	S-706	S-706	Rotational	10	MED LOG MGMT CTR
-DemandRecord	TRUE	1	2	1	91	273	45	10473R100	Uniform	S-7337	S-7337	S-7337	Rotational	10	QM COMP SPLY CO
-DemandRecord	TRUE	1	2	1	1100	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
-DemandRecord	TRUE	1	4	1	1108	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
-DemandRecord	TRUE	1	2	1	1116	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
-DemandRecord	TRUE	1	4	1	1124	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies
-DemandRecord	TRUE	1	1	1	1132	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
-DemandRecord	TRUE	1	9	1	1140	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
-DemandRecord	TRUE	1	3	1	1148	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
-DemandRecord	TRUE	1	9	1	1156	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies
-DemandRecord	TRUE	1	4	1	1164	16	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies
-DemandRecord	TRUE	1	7	1	1180	3	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies
-DemandRecord	TRUE	1	1	1	1100	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
-DemandRecord	TRUE	1	8	1	1108	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
-DemandRecord	TRUE	1	1	1	1116	16	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos
-DemandRecord	TRUE	1	1	1	1132	8	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos
-DemandRecord	TRUE	1	8	1	1140	24	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos
-DemandRecord	TRUE	1	8	1	1164	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos
-DemandRecord	TRUE	1	4	1	1172	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos
-DemandRecord	TRUE	1	7	1	1180	3	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos
-DemandRecord	TRUE	1	1	1	1100	8	45	98EPW000	Uniform	SE-99	SE-99	PH I	Rotational	10	Chipmunks
+Type	Enabled	Priority	Quantity	DemandIndex	StartDay	Duration	Overlap	SRC	SourceFirst	DemandGroup	Vignette	Operation	Category	Title10_32	OITitle	Strength
+DemandRecord	TRUE	1	1	1	91	273	45	08670R000	Uniform	S-706	S-706	S-706	Rotational	10	MED LOG MGMT CTR	14
+DemandRecord	TRUE	1	2	1	91	273	45	10473R100	Uniform	S-7337	S-7337	S-7337	Rotational	10	QM COMP SPLY CO	208
+DemandRecord	TRUE	1	2	1	1093	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1101	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	2	1	1109	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1117	8	45	01205K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	1	1	1125	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	9	1	1133	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	3	1	1141	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	9	1	1149	8	45	01205K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	4	1	1157	16	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	7	1	1173	10	45	01205K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Ponies	381
+DemandRecord	TRUE	1	1	1	1093	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	8	1	1101	8	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	1	1	1109	16	45	01225K000	Uniform	SE-99	SE-99	PH I	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	1	1	1125	8	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	8	1	1133	24	45	01225K000	Uniform	SE-99	SE-99	PH IIa	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	8	1	1157	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	4	1	1165	8	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	7	1	1173	10	45	01225K000	Uniform	SE-99	SE-99	PH IIb	Rotational	10	Buffalos	590
+DemandRecord	TRUE	1	1	1	1093	8	45	98EPW000	Uniform	SE-99	SE-99	PH I	Rotational	10	Chipmunks	1000

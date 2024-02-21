@@ -1,1 +1,1 @@
-Event Code	SCR2	SRC	SRC TITLE`	STR	QTY	Title 10_32
+ForceCode	SRC2	SRC	Title	Strength	Quantity	Title10_32

@@ -58,7 +58,6 @@
     (f/root->demandfile inpath)
     (into [] (spork.util.table/tabdelimited->records (str inpath "Input_DEMAND.txt") :schema demand-schema :keywordize-fields? false))))
     
-
 (defn get-expected
   "Given a path to a taa_test_data directory, get the expected results in
   the same format as get-output."
@@ -86,7 +85,7 @@
 
 (defn forge-filt [io-file]
   (not= (.getName io-file) "FORGE_SE-99.txt"))
-
+                                 
 (defn deep-copy 
 	"Copies all files in sourcedir to targetdir.  Creates folders
   as needed.  Filter java.io.File objects with filt"
@@ -105,10 +104,6 @@
 			(when (not (.exists vf)) (io/make-parents vf))
 			(when (.isFile kf) (io/copy kf vf))))))
 
-;;(deep-copy "test/resources/updated-test/"
-;;  "/test/resources/"
-;; :filt forge-filt)
-;;(doseq [p test-names] (get-output (add-path p)))
 
 (def test-names
   [ "wrong_phase_extended"
@@ -126,16 +121,44 @@
    "forge_decimals"
    ])
 
+(defn copy-file [source-path dest-path]
+  (io/copy (io/file source-path) (io/file dest-path)))
+
+(defn set-new-test-data "Felt good about the code status at this
+  point, so created some test data and saved it as the test case for
+  future regression tests."
+  []
+  (doseq [t test-names] (copy-file (str
+                                    (add-path
+                                     t) "/Input/Input_DEMAND.txt")
+                                   (str
+                                    (add-path
+                                     t)
+                                    "/Output/Input_DEMAND_expected.txt"))))
+
+(defn two-tests [test-name]
+  (let [updated-test
+        [;;Unit Node Details tests
+         (add-path (str "/updated-test/" test-name))]]
+    (if (contains? #{"earlier_map" "forge_decimals"}
+                   test-name)
+      ;;Don't have updated SRC_By_Day files for these tests since they
+      ;;were created after we started only testing Unit Node Detail.
+      updated-test
+      (conj updated-test
+            ;;SRC_by_Day tests        
+            (add-path test-name)))))
+
+;;tues:finished this, so wed, see if tests run!
 (def test-paths
-  (mapcat (fn [test-name]           
-            [;;SRC_by_Day tests
-             ;;(all test data same as unit node details tests except
-             ;;for the FORGE files.
-             (add-path test-name)
-             ;;Unit Node Details tests
-             (add-path (str test-name "/updated-test"))]) test-names))           
+  (mapcat two-tests test-names))           
   
 (deftest demandbuilder
+  ;;All test data same as unit node details tests except
+  ;;for the FORGE files.
+  (deep-copy "/test/resources/updated-test/"
+             "/test/resources/"
+             :filt forge-filt)
   (doseq [p test-paths
           :let [_ (println (str "Testing " p))
                 out (get-output p)

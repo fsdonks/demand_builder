@@ -1,0 +1,2 @@
+ForceCode	Reason
+S-706	Not in consolidated

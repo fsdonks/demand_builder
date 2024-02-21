@@ -1,0 +1,5 @@
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH IIa", :Title "Ponies", :Strength 381, :StartDay 1141, :Duration 8, :Vignette "SE-99", :Quantity 3}
+{:DemandGroup "SE-99", :SRC "43205K000", :Operation "PH IIa", :Title "Ponies", :Strength 381, :StartDay 1141, :Duration 8, :Vignette "SE-99", :Quantity 3}
+{:DemandGroup "SE-99", :SRC "43205K000", :Operation "PH IIa", :Title "Ponies", :Strength 381, :StartDay 1149, :Duration 8, :Vignette "SE-99", :Quantity 4}
+{:DemandGroup "SE-99", :SRC "98205K000", :Operation "PH IIa", :Title "Ponies", :Strength 381, :StartDay 1141, :Duration 8, :Vignette "SE-99", :Quantity 3}
+{:DemandGroup "SE-99", :SRC "98205K000", :Operation "PH IIa", :Title "Ponies", :Strength 381, :StartDay 1149, :Duration 8, :Vignette "SE-99", :Quantity 4}

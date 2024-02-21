@@ -1,0 +1,8 @@
+{:ForceCode "S-7337", :SRC "01285K000", :Title "ATK/RECON BN (24x AH-64)", :Strength 396, :Quantity 2, :Title10_32 "10"}
+{:ForceCode "S-7337", :SRC "01285K000", :Title "ATK/RECON BN (24x AH-64)", :Strength 396, :Quantity 3, :Title10_32 "10"}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 10, :Duration 8, :Vignette "SE-99", :Quantity 4}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 10, :Duration 8, :Vignette "SE-99", :Quantity 3}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 18, :Duration 8, :Vignette "SE-99", :Quantity 2}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 18, :Duration 8, :Vignette "SE-99", :Quantity 2}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 26, :Duration 8, :Vignette "SE-99", :Quantity 4}
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH I", :Title "Ponies", :Strength 381, :StartDay 26, :Duration 8, :Vignette "SE-99", :Quantity 4}

@@ -1,0 +1,2 @@
+{:DemandGroup "SE-99", :SRC "01205K000", :Operation "PH IIb", :Title "Ponies", :Strength 381, :StartDay 1173, :Duration 8, :Vignette "SE-99", :Quantity 7}
+{:DemandGroup "SE-99", :SRC "01225K000", :Operation "PH IIb", :Title "Buffalos", :Strength 590, :StartDay 1173, :Duration 8, :Vignette "SE-99", :Quantity 7}

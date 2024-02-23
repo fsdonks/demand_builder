@@ -10,6 +10,7 @@
                  [joinr/incanter-core "1.9.3-SNAPSHOT"]
                  [joinr/incanter-charts "1.9.3-SNAPSHOT"]]
   :source-paths ["src" #_"../spork/src"]
+  :resource-paths ["test/resources"]
   :main demand-builder.main
   :aot [demand-builder.main]
   ;;  :repl-options {:timeout 300000}

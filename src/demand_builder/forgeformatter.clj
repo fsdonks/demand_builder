@@ -1,6 +1,10 @@
 (ns demand_builder.forgeformatter
-  (:require [spork.util.table]
-            [clojure.string :as str]))
+  (:require [spork.util.table :as tbl]
+            [spork.util.excel.docjure :as docjure]
+            [spork.util.excel.core :as xl]
+            [clojure.string :as str]
+            [clojure.java.io :as jio]
+            [spork.util.io :as io]))
 
 ;;ns for reading data from FORGE file and parsing the data needed for a MARATHON demand record/
 ;;includes multiple methods of parsing using different formatts.
@@ -34,14 +38,63 @@
 ;;-The value for :data will be a list of maps with the keys as the keys from the header and the values as the values in the corresponding column
 ;; **The keys for days have already been formatted and read as
 ;;number. To get the quantity at time 8 for map m, use (get m 8)
-(defn slurp-forge [filename]
-  (-> (slurp filename)
-      ;;remove newlines from cells.
-      (str/replace #"\nTP" "TP")
-      (str/split-lines)))
+;;save the SRC_by_day worksheet as tab delimitted text for demand
+;;builder
+(defn remove-newlines-split [filename]
+  (-> ;;remove newlines from cells.
+   (str/replace filename #"\nTP" "TP")
+   (str/split-lines)))
 
+(defn read-and-strip
+  "Turn a cell into a string with read-cell but also put the cell
+  values that have a newline in them in quotes so that it opens as tab
+  delimited in Excel properly."
+  [c]
+  (let [v (docjure/read-cell c)]
+    (when v
+      (clojure.string/replace v #"\n" ""))))
+       
+(defn forge-wkbk->str
+  "Return the string representation of an src_by_day worksheet.
+  Expect SRC_By_Day to be a worksheet in the already loaded
+  forge-wkbk."
+  [forge-wkbk]
+  (->> forge-wkbk
+       (docjure/select-sheet "SRC_By_Day")
+       docjure/row-seq
+       (map (fn [x] (if x (docjure/cell-seq x))))
+       (map #(reduce str (interleave
+                          (map (fn [c]
+                                 (read-and-strip c)) %)
+                          (repeat "\t"))))
+       ((fn [x] (interleave x (repeat "\n"))))
+       ;;One extra newline to remove at the end.
+       (butlast)
+       (reduce str)))
+
+(defn forge-by-day-from
+  "Allows loading the forge data from the path to an src-by-day text
+  file or from an Excel workbook."
+  [forge-path]
+  (if (.exists (jio/as-file forge-path))
+    (let [extension (.toLowerCase (io/fext forge-path))]
+      (case extension
+        "txt" 
+        (slurp forge-path)
+        "xlsx"
+        (forge-wkbk->str
+        ;;check for a resource first
+        (if (jio/resource forge-path)
+          (docjure/load-workbook-from-resource forge-path)
+          (xl/as-workbook forge-path)))))
+    (throw (ex-info "FORGE file doesn't exist." {:file-path
+                                                 forge-path}))))
+    
+(defn splitted-forge [forge-path]
+  (remove-newlines-split (forge-by-day-from forge-path)))
+  
 (defn read-forge [filename]
-  (let [l (slurp-forge filename)
+  (let [l (splitted-forge filename)
         formatter #(if (and (str/includes? % "TP") (str/includes? % "Day"))
                        (read-num (str/replace (first (str/split % #"TP")) "Day " "")) %)
           phases (str/split (first l) #"\t")
@@ -130,7 +183,7 @@
 ;; ***It is assumed that FORGE files have the formatting of root-path/FORGE_SE-xxxx.txt, where SE-xxxx is the scenario force code.
 ;; **** The ForceCode determined by the file name has to EXACTLY match what is listed as the ForceCode in the Vignette Mapping file.
 (defn forgefile->records [filename]
-  (let [vignette (clojure.string/replace (last (clojure.string/split filename #"FORGE_")) (str "." (spork.util.io/fext filename)) "")
+  (let [vignette (clojure.string/replace (last (clojure.string/split filename #"FORGE_")) (str "." (io/fext filename)) "")
         input (read-forge filename)
         last-phase (last (sort (:phases input)))]
     (for [m (flatten (map #(reduce-records (->record % (:phases input))) (:data input)))]
@@ -154,7 +207,7 @@
 
 ;;Rename Fields in map
 (defn forge->map [forgefile]
-  (let [data (into [] (spork.util.table/tabdelimited->records forgefile :schema forge-schema))]
+  (let [data (into [] (tbl/tabdelimited->records forgefile :schema forge-schema))]
     (map #(-> (assoc % :Quantity (forge-quantity (get % (keyword "UIN Quantity"))))
               (assoc :StartDay (get % (keyword "Time Period Begin Day")))
               (assoc :Duration (get % (keyword "Time Period Days")))
@@ -181,7 +234,7 @@
 
 
 (defn read-header [file]
- (with-open [r (clojure.java.io/reader file)]
+ (with-open [r (jio/reader file)]
    (clojure.string/split (first (line-seq r)) #"\t")))
 
 (def unit-node-detail-header ["UIN Quantity" "Time Period Begin Day" "Time Period Days" "SRC Strength"])
@@ -196,5 +249,16 @@
     (forge->records filename)
     (forgefile->records filename)))
 
-
+(defn get-forge-phases [by-day-path]
+  (:phases (read-forge by-day-path)))
+              
+(defn parse-phase [phase]
+  (cond
+    (str/includes? phase "FwdStationed") "phase1"                        
+    (str/includes? phase "PH I") "phase1"
+    (str/includes? phase "PH II") "phase2"
+    (str/includes? phase "PH III") "phase3"
+    (str/includes? phase "PH IV") "phase4"
+    :else (throw (ex-info "No phase mapping exists."
+                          {:phase phase}))))
 

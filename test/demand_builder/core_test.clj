@@ -88,7 +88,8 @@
                                  
 (defn deep-copy 
 	"Copies all files in sourcedir to targetdir.  Creates folders
-  as needed.  Filter java.io.File objects with filt"
+  as needed.  Filter java.io.File objects with filt. Copied code
+  from spork.util.io before update to spork."
   [sourcedir targetdir & {:keys [filt] :or {filt (fn [f] true)}}]
   (let [source-paths (->> (io/file sourcedir)
                           (file-seq)
@@ -103,7 +104,6 @@
 		(let [[kf vf] (map io/file kv)]		
 			(when (not (.exists vf)) (io/make-parents vf))
 			(when (.isFile kf) (io/copy kf vf))))))
-
 
 (def test-names
   [ "wrong_phase_extended"

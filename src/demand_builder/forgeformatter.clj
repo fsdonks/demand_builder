@@ -254,11 +254,59 @@
               
 (defn parse-phase [phase]
   (cond
-    (str/includes? phase "FwdStationed") "phase1"                        
-    (str/includes? phase "PH I") "phase1"
-    (str/includes? phase "PH II") "phase2"
-    (str/includes? phase "PH III") "phase3"
+    (str/includes? phase "FwdStation") "phase1"
     (str/includes? phase "PH IV") "phase4"
+    (str/includes? phase "PH III") "phase3"
+    (str/includes? phase "PH II") "phase2"
+    ;;because the previous 3 include this one...
+    (str/includes? phase "PH I") "phase1"   
     :else (throw (ex-info "No phase mapping exists."
                           {:phase phase}))))
 
+(defn add-initial-phase [sorted-phases]
+    (concat [["0-day" 0]] sorted-phases))
+
+(defn end-pairs->bounds
+  "Takes a partition of the FORGE phase-end map and returns the start
+  and end of the second phase of the partition."
+  [[[phase-1 end-1] [phase-2 end-2]]]
+  [phase-2 (inc end-1) end-2])
+
+(defn collapse-phase
+  [[phase phase-tuples]]
+  (let [start-day (second (first phase-tuples))
+        end-day (last (last phase-tuples))]
+    [phase start-day end-day]))
+  
+(defn collapse-phases
+  "Takes a seq of [phase start end] tuples, parses the phase with
+  phase-parser, and assumes that multiple tuples may now have the same
+  phase, so collapses the start and end into one phase tuple.  Assumes
+  that tuples with the same phase will be adjacent."
+  [phase-tuples & {:keys [phase-parser] :or {phase-parser
+                                             parse-phase}}]
+  (->> phase-tuples
+       (map #(update % 0 phase-parser))
+       (group-by first)
+       (map collapse-phase)))
+  
+(defn ends->inclusives
+  "Turns FORGE phase-end map into a seq of phases starts and ends,
+  using a phase-parser per collapse-phases."
+  [phase-map & {:keys [phase-parser] :or {phase-parser
+                                          parse-phase}
+                :as opt-args}]
+  (let [sorted-phases (sort-by second (seq phase-map))]
+    (->> sorted-phases
+         add-initial-phase
+         (partition 2 1)
+         (map end-pairs->bounds)
+         (#(collapse-phases % opt-args)))))
+
+(defn processed-phases-from
+  "Given the path to a FORGE file, return the phase and start and end
+  days for each phase after post processing with the phase-parser."
+  [by-day-path & {:keys [phase-parser] :or {phase-parser
+                                          parse-phase}
+                :as opt-args}]
+   (ends->inclusives (get-forge-phases by-day-path) opt-args))       

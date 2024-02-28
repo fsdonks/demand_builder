@@ -303,10 +303,23 @@
          (map end-pairs->bounds)
          (#(collapse-phases % opt-args)))))
 
+(defn project-phases
+  "Given phase tuples and an added-time, add the added time minus one
+  to each start and end."
+  [phase-tuples added-time]
+  (let [project #(+ % (dec added-time))]
+    (for [[phase start end] phase-tuples]
+      [phase (project start) (project end)])))
+  
 (defn processed-phases-from
   "Given the path to a FORGE file, return the phase and start and end
-  days for each phase after post processing with the phase-parser."
-  [by-day-path & {:keys [phase-parser] :or {phase-parser
-                                          parse-phase}
-                :as opt-args}]
-   (ends->inclusives (get-forge-phases by-day-path) opt-args))       
+  days for each phase after post processing with the phase-parser,
+  projecting the times based on a start-day."
+  [by-day-path & {:keys [phase-parser start-day] :or {phase-parser
+                                                      parse-phase
+                                                      start-day
+                                                      1}
+                  :as opt-args}]
+  (-> (get-forge-phases by-day-path)
+      (ends->inclusives opt-args)
+      (project-phases start-day)))       

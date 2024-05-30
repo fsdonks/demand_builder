@@ -249,8 +249,10 @@
     (forge->records filename)
     (forgefile->records filename)))
 
-(defn get-forge-phases [by-day-path]
-  (:phases (read-forge by-day-path)))
+(defn forge-days [forge-data]
+  (->> forge-data
+       (:header)
+       (filter number?)))       
               
 (defn parse-phase [phase]
   (cond
@@ -263,14 +265,14 @@
     :else (throw (ex-info "No phase mapping exists."
                           {:phase phase}))))
 
-(defn add-initial-phase [sorted-phases]
-    (concat [["0-day" 0]] sorted-phases))
-
-(defn end-pairs->bounds
-  "Takes a partition of the FORGE phase-end map and returns the start
-  and end of the second phase of the partition."
-  [[[phase-1 end-1] [phase-2 end-2]]]
-  [phase-2 (inc end-1) end-2])
+(defn prior-phase-end-day [phase forge-data]
+  (let [next-phase-first-end (get-in forge-data [:phases phase] 0)
+        end-day (last (take-while #(< % next-phase-first-end)
+                                  (forge-days forge-data)))]
+    (if end-day
+      end-day
+      ;;Probably first phase
+      0)))      
 
 (defn collapse-phase
   [[phase phase-tuples]]
@@ -289,20 +291,31 @@
        (map #(update % 0 phase-parser))
        (group-by first)
        (map collapse-phase)))
+
+(defn current-end
+  "Given an index, i, for an entry in sorted-phases, and some
+  forge-data from SRC_By_Day, return the last day of the phase at
+  index i."
+  [i sorted-phases forge-data]
+  (if (= i (dec (count sorted-phases)))
+    (last (forge-days forge-data))
+    (prior-phase-end-day
+     (first (nth sorted-phases (inc i)))
+     forge-data)))
   
 (defn ends->inclusives
-  "Turns FORGE phase-end map into a seq of phases starts and ends,
-  using a phase-parser per collapse-phases."
-  [phase-map & {:keys [phase-parser] :or {phase-parser
-                                          parse-phase}
-                :as opt-args}]
-  (let [sorted-phases (sort-by second (seq phase-map))]
-    (->> sorted-phases
-         add-initial-phase
-         (partition 2 1)
-         (map end-pairs->bounds)
-         (#(collapse-phases % opt-args)))))
-
+  "Turns FORGE phase-end map into a seq of phases starts and ends."
+  [forge-path]
+  (let [{:keys [phases] :as forge-data} (read-forge forge-path)
+        sorted-phases (sort-by second (seq phases))]
+    (for [i (range (count sorted-phases))
+          :let [[phase first-end] (nth sorted-phases i)
+                prev-end (if (= i 0)
+                           0
+                           (prior-phase-end-day phase forge-data))
+                curr-end (current-end i sorted-phases forge-data)]]      
+      [phase (inc prev-end) curr-end])))
+            
 (defn project-phases
   "Given phase tuples and an added-time, add the added time minus one
   to each start and end."
@@ -320,6 +333,6 @@
                                                       start-day
                                                       1}
                   :as opt-args}]
-  (-> (get-forge-phases by-day-path)
-      (ends->inclusives opt-args)
+  (-> (ends->inclusives by-day-path)
+      (#(collapse-phases % opt-args))
       (project-phases start-day)))       

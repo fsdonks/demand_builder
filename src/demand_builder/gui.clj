@@ -8,6 +8,14 @@
            [javax.swing BoxLayout JPanel JTextField JTextArea])
   (:use [seesaw core chooser]))
 
+;;The demand builder gui is no long in use.  I had deleted the
+;;pipeline for the gui data processing in demand_builder.core because
+;;it was a separate workflow from the tests and taa repo production
+;;pipeline that we have been using in demand_builder.formatter.
+
+;;For now, we will save this workspace in case we ever want to hook up
+;;another gui to the production pipeline.
+
 (native!)
 (set! *warn-on-reflection* true)
 

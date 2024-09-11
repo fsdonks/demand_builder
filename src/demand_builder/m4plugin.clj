@@ -71,7 +71,11 @@
 (defn forgexlsx->tsv [forgefile dir input-map]
   (let [p (first (filter #(= forgefile (:Path %)) input-map))]
     (if (= (:Sheetname p) "Unit_Node_Detail")
-      (ex/xlsx->tabdelimited forgefile :sheetnames [(:Sheetname p)])
+      (-> (ex/wb->tables (doc/load-workbook forgefile) :sheetnames
+                         [(:Sheetname p)])
+          (clojure.set/rename-keys {"Unit_Node_Detail" (:ForceCode p)})
+          ((fn [sheet-map] (ex/tables->tabdelimited dir sheet-map))))
+      ;(ex/xlsx->tabdelimited forgefile :sheetnames [(:Sheetname p)])
       (forge->non-tab forgefile dir (:Sheetname p) (:ForceCode p)))
     (rename-file (str dir (:ForceCode p) ".txt")
                  (str (io/as-directory (str dir outputdir)) "FORGE_"
